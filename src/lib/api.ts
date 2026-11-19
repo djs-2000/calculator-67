@@ -174,14 +174,16 @@ export async function fetchProtectedCatalog() {
 }
 
 export async function verifyAdminRole() {
-  return requestJson<{ admin: { user_id: string; email: string; role: string } }>(
-    '/api/admin/me',
-    'admin-access-codes',
-    {
-      method: 'GET',
-      includeAdminAuth: true,
-    }
-  );
+  const data = await requestJson<{
+    admin?: { user_id: string; email: string; role: string };
+  }>('/api/admin/me', 'admin-access-codes', {
+    method: 'GET',
+    includeAdminAuth: true,
+  });
+  if (!data.admin?.email) {
+    throw new Error('Unauthorized.');
+  }
+  return { admin: data.admin };
 }
 
 export async function fetchAdminAccessCodes() {

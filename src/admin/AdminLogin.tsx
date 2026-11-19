@@ -48,9 +48,16 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
 
       const roleRes = await verifyAdminRole();
       onAuthenticated(roleRes.admin.email);
-    } catch {
+    } catch (err) {
       await supabase.auth.signOut().catch(() => undefined);
-      setError('Invalid credentials or insufficient permissions.');
+      const status = (err as { status?: number })?.status;
+      if (status === 401 || status === 403) {
+        setError('Invalid credentials or insufficient permissions.');
+      } else {
+        setError(
+          'Unable to verify administrator role. Ensure Edge Functions are deployed and admin_users is configured.'
+        );
+      }
     } finally {
       setLoading(false);
     }

@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: false });
 
       if (error) return jsonResponse({ error: 'Failed to load access codes.' }, 500);
-      return jsonResponse({ codes: data ?? [] });
+      return jsonResponse({ admin: admin.admin, codes: data ?? [] });
     }
 
     if (req.method === 'POST') {
