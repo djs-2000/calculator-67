@@ -111,16 +111,20 @@ npm run build
 
 ---
 
-## 4. GitHub & Cloudflare Pages Deployment
+## 4. GitHub & Cloudflare Deployment
 
-1. Push the repository to GitHub (`git init && git add . && git commit -m "Initial commit" && git push`).
-2. In **Cloudflare Dashboard → Workers & Pages → Create → Pages → Connect to Git**, select your GitHub repository.
-3. Configure the build settings:
-   - **Framework preset**: `Vite`
-   - **Build command**: `npm run build`
-   - **Build output directory**: `dist`
-4. Add the Cloudflare Pages environment variables (for both Production and Preview):
+1. Push the repository to GitHub.
+2. In **Cloudflare Dashboard → Workers & Pages**:
+   - **If deploying as a Worker** (default Git import):
+     - **Build command**: `npm run build`
+     - **Deploy command**: `npx wrangler deploy`
+     - Ensure `name` in `wrangler.toml` matches your Worker's name in Cloudflare. `wrangler.toml` uses `[assets]` (`directory = "./dist"`, `not_found_handling = "single-page-application"`).
+   - **If deploying as Pages** (**Create → Looking to deploy Pages? Get started**):
+     - **Build command**: `npm run build`
+     - **Build output directory**: `dist`
+     - `public/_redirects` handles SPA client-side routing (`/games`, `/games/:slug`, `/admin`).
+3. Add these **Build / Environment variables** in Cloudflare:
    - `VITE_SUPABASE_URL` = your Supabase project URL
    - `VITE_SUPABASE_ANON_KEY` = your Supabase anon public key
    - `VITE_BACKEND_MODE` = `supabase`
-5. Deploy. `public/_redirects` handles SPA client-side routing (`/games`, `/games/:slug`, `/admin`).
+4. Deploy.

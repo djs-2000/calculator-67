@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables & secrets (keep .env.example committed)
+.env
+.env.local
+.env.*.local
+
+# Supabase local temp/link state
+.supabase/
+
+# Logs & OS metadata
+*.log
+.DS_Store
+Thumbs.db
