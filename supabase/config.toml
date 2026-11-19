@@ -1,0 +1,30 @@
+project_id = "calculator-app"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = false
+
+[functions.verify-access-code]
+verify_jwt = false
+
+[functions.games-catalog]
+verify_jwt = false
+
+[functions.admin-access-codes]
+verify_jwt = true
+
+[functions.admin-games]
+verify_jwt = true
+
+[functions.admin-categories]
+verify_jwt = true

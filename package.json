@@ -1,5 +1,5 @@
 {
-  "name": "calculator-67",
+  "name": "calculator",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.1",
     "@tailwindcss/vite": "^4.0.6",
     "@vitejs/plugin-react": "^4.3.4",
     "express": "^4.21.2",
