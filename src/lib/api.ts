@@ -1,8 +1,12 @@
-import { supabase, isSupabaseClientConfigured } from './supabase';
+import {
+  supabase,
+  isSupabaseClientConfigured,
+  normalizedSupabaseUrl,
+} from './supabase';
 
 const SESSION_STORAGE_KEY = 'calculator_access_session';
 const BACKEND_MODE = (import.meta.env.VITE_BACKEND_MODE ?? 'api').trim().toLowerCase();
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL ?? '').trim();
+const SUPABASE_URL = normalizedSupabaseUrl;
 const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
 
 export interface StoredAccessSession {
