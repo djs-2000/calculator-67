@@ -14,7 +14,6 @@ A minimal, responsive web application featuring a full-featured calculator homep
 
 ```text
 public/
-  _redirects                  # Cloudflare Pages SPA fallback
   favicon.svg
 src/
   admin/                      # Admin login, access-code, game, and category managers
@@ -122,7 +121,6 @@ npm run build
    - **If deploying as Pages** (**Create → Looking to deploy Pages? Get started**):
      - **Build command**: `npm run build`
      - **Build output directory**: `dist`
-     - `public/_redirects` handles SPA client-side routing (`/games`, `/games/:slug`, `/admin`).
 3. Add these **Build / Environment variables** in Cloudflare:
    - `VITE_SUPABASE_URL` = your Supabase project URL
    - `VITE_SUPABASE_ANON_KEY` = your Supabase anon public key

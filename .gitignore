@@ -11,6 +11,7 @@ dist/
 
 # Supabase local temp/link state
 .supabase/
+supabase/.temp/
 
 # Logs & OS metadata
 *.log
