@@ -22,21 +22,37 @@ export async function sha256Hex(input: string): Promise<string> {
 
 export async function requireAdmin(req: Request) {
   const authHeader = req.headers.get('Authorization') ?? '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  if (!token) return null;
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  const token = match ? match[1].trim() : '';
+  if (!token) {
+    console.error('[requireAdmin] Missing Bearer token');
+    return null;
+  }
 
   const supabase = getAdminClient();
   const { data: userData, error } = await supabase.auth.getUser(token);
-  if (error || !userData?.user) return null;
+  if (error || !userData?.user) {
+    console.error('[requireAdmin] auth.getUser failed:', error?.message ?? 'no user');
+    return null;
+  }
 
-  const { data: adminRow } = await supabase
+  const { data: adminRow, error: dbError } = await supabase
     .from('admin_users')
     .select('user_id, email, role')
     .eq('user_id', userData.user.id)
     .eq('role', 'admin')
     .maybeSingle();
 
-  if (!adminRow) return null;
+  if (dbError) {
+    console.error('[requireAdmin] admin_users lookup failed:', dbError.message);
+    return null;
+  }
+
+  if (!adminRow) {
+    console.error('[requireAdmin] No admin_users row for user:', userData.user.id);
+    return null;
+  }
+
   return { supabase, user: userData.user, admin: adminRow };
 }
 
