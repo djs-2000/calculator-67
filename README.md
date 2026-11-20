@@ -110,19 +110,18 @@ npm run build
 
 ---
 
-## 4. GitHub & Cloudflare Deployment
+## 4. GitHub, Vercel & Cloudflare Deployment
 
 1. Push the repository to GitHub.
-2. In **Cloudflare Dashboard → Workers & Pages**:
-   - **If deploying as a Worker** (default Git import):
-     - **Build command**: `npm run build`
-     - **Deploy command**: `npx wrangler deploy`
-     - Ensure `name` in `wrangler.toml` matches your Worker's name in Cloudflare. `wrangler.toml` uses `[assets]` (`directory = "./dist"`, `not_found_handling = "single-page-application"`).
-   - **If deploying as Pages** (**Create → Looking to deploy Pages? Get started**):
-     - **Build command**: `npm run build`
-     - **Build output directory**: `dist`
-3. Add these **Build / Environment variables** in Cloudflare:
-   - `VITE_SUPABASE_URL` = your Supabase project URL
-   - `VITE_SUPABASE_ANON_KEY` = your Supabase anon public key
-   - `VITE_BACKEND_MODE` = `supabase`
-4. Deploy.
+2. **If deploying on Vercel**:
+   - In **Vercel Dashboard → Add New → Project**, import your GitHub repository.
+   - Vercel automatically detects **Vite** (**Build Command**: `npm run build`, **Output Directory**: `dist`). `vercel.json` handles SPA client-side routing (`/games`, `/games/:slug`, `/admin`).
+   - Under **Environment Variables**, add:
+     - `VITE_SUPABASE_URL` = your Supabase project URL
+     - `VITE_SUPABASE_ANON_KEY` = your Supabase anon public key
+     - `VITE_BACKEND_MODE` = `supabase`
+   - Click **Deploy**, then add your `https://<your-project>.vercel.app` URL in **Supabase Dashboard → Authentication → URL Configuration**.
+3. **If deploying on Cloudflare Workers / Pages**:
+   - **Worker** (default Git import): **Build command** `npm run build`, **Deploy command** `npx wrangler deploy` (ensure `name` in `wrangler.toml` matches your Worker name).
+   - **Pages** (**Create → Looking to deploy Pages? Get started**): **Build command** `npm run build`, **Build output directory** `dist`.
+   - Add the same `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_BACKEND_MODE=supabase` variables.

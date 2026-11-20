@@ -134,6 +134,13 @@ CREATE POLICY "Admins full access to app_settings"
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+-- Explicit PostgreSQL role grants (RLS remains strictly enforced)
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres, service_role;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres, service_role;
+GRANT SELECT ON public.admin_users TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_categories, public.games, public.access_codes, public.app_settings TO authenticated;
+
 -- Seed required game categories
 INSERT INTO public.game_categories (name, slug, sort_order) VALUES
   ('Arcade', 'arcade', 1),
