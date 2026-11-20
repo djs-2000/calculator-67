@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { Search } from 'lucide-react';
 import { type GuideCategory, type GuideItem } from './types';
 import { GuideCard } from '../components/GuideCard';
 
@@ -51,69 +50,69 @@ export const GuidesLibrary: React.FC<GuidesLibraryProps> = ({
   }, [safeGuides, search, selectedCategoryId, categoryMap]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            Guides Library
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Browse interactive mechanics walkthroughs and reference guides by topic.
-          </p>
-        </div>
+    <div
+      className="max-w-[800px] mx-auto bg-white py-4 space-y-6"
+      style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: '#333333' }}
+    >
+      <header className="border-b border-[#d4d4d4] pb-4 space-y-2">
+        <p className="text-xs uppercase tracking-widest text-[#666666]">
+          Assigned Curriculum Readings &amp; Modules
+        </p>
+        <h1 className="text-2xl font-normal text-[#333333]">
+          Computational Logic Module Index
+        </h1>
+        <p className="text-sm text-[#4a4a4a] leading-relaxed">
+          Select an assigned reading and accompanying interactive diagram below to examine
+          constraint satisfaction, state transitions, and quantitative reasoning.
+        </p>
+      </header>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search guides..."
-            aria-label="Search guides"
-            className="w-full pl-9 pr-3.5 py-2 text-sm bg-white border border-slate-200 rounded-md text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900"
-          />
-        </div>
-      </div>
-
-      {/* Category Filter Bar */}
-      <div
-        className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 border border-slate-200 rounded-lg"
-        role="tablist"
-        aria-label="Guide categories"
-      >
-        <button
-          type="button"
-          onClick={() => setSelectedCategoryId('all')}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
-            selectedCategoryId === 'all'
-              ? 'bg-white text-slate-900 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#e5e5e5] pb-4">
+        <div
+          className="flex flex-wrap items-center gap-4 text-sm"
+          role="tablist"
+          aria-label="Module categories"
         >
-          All
-        </button>
-        {safeCategories.map((cat) => (
           <button
-            key={cat.id}
             type="button"
-            onClick={() => setSelectedCategoryId(cat.id)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
-              selectedCategoryId === cat.id
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+            onClick={() => setSelectedCategoryId('all')}
+            className={`cursor-pointer bg-transparent p-0 transition-colors ${
+              selectedCategoryId === 'all'
+                ? 'text-[#333333] underline underline-offset-4 font-bold'
+                : 'text-[#666666] hover:text-[#333333]'
             }`}
           >
-            {cat.name}
+            All Modules
           </button>
-        ))}
+          {safeCategories.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setSelectedCategoryId(cat.id)}
+              className={`cursor-pointer bg-transparent p-0 transition-colors ${
+                selectedCategoryId === cat.id
+                  ? 'text-[#333333] underline underline-offset-4 font-bold'
+                  : 'text-[#666666] hover:text-[#333333]'
+              }`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter readings..."
+          aria-label="Filter readings"
+          className="w-full sm:w-56 px-2.5 py-1.5 text-sm bg-white border border-[#cccccc] text-[#333333] placeholder:text-[#777777] focus:outline-none focus:border-[#333333]"
+        />
       </div>
 
       {filteredGuides.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-lg p-10 text-center">
-          <p className="text-sm font-medium text-slate-900">No matching guides found</p>
-          <p className="mt-1 text-xs text-slate-500">
-            Try clearing the search query or selecting another category.
-          </p>
+        <div className="py-10 text-center space-y-2">
+          <p className="text-sm text-[#333333]">No matching modules found.</p>
           {(search || selectedCategoryId !== 'all') && (
             <button
               type="button"
@@ -121,14 +120,14 @@ export const GuidesLibrary: React.FC<GuidesLibraryProps> = ({
                 setSearch('');
                 setSelectedCategoryId('all');
               }}
-              className="mt-4 px-4 py-2 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-colors"
+              className="text-sm underline underline-offset-4 text-[#333333] cursor-pointer bg-transparent"
             >
-              Reset Filters
+              Clear Filter
             </button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
           {filteredGuides.map((guide) => (
             <GuideCard
               key={guide.id}

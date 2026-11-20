@@ -1,274 +1,283 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Play,
-  Pause,
-  RotateCcw,
   ArrowUp,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
 } from 'lucide-react';
 
-type ModuleState = 'READY' | 'ACTIVE' | 'PAUSED' | 'COMPLETE';
-const GRID_SIZE = 18;
+type ModulePhaseState = 'READ_FIRST' | 'ACTIVE' | 'PAUSED' | 'COMPLETE';
+const GRID_DIMENSION = 18;
 
 export const GridPathCanvas: React.FC = () => {
-  const [moduleState, setModuleState] = useState<ModuleState>('READY');
-  const [trail, setTrail] = useState<Array<[number, number]>>([
+  const [moduleState, setModuleState] = useState<ModulePhaseState>('READ_FIRST');
+  const [sequence, setSequence] = useState<Array<[number, number]>>([
     [9, 9],
     [8, 9],
     [7, 9],
   ]);
-  const [target, setTarget] = useState<[number, number]>([13, 9]);
-  const [metric, setMetric] = useState(0);
-  const [bestMetric, setBestMetric] = useState(() =>
-    Number(localStorage.getItem('calc_grid_path_peak') || '0')
+  const [targetNode, setTargetNode] = useState<[number, number]>([13, 9]);
+  const [accuracyRate, setAccuracyRate] = useState(0);
+  const [benchmark, setBenchmark] = useState(() =>
+    Number(localStorage.getItem('calc_grid_path_benchmark') || '0')
   );
-  const dirRef = useRef<[number, number]>([1, 0]);
+  const vectorRef = useRef<[number, number]>([1, 0]);
 
-  const spawnTarget = useCallback((body: Array<[number, number]>): [number, number] => {
-    while (true) {
-      const fx = Math.floor(Math.random() * GRID_SIZE);
-      const fy = Math.floor(Math.random() * GRID_SIZE);
-      if (!body.some(([x, y]) => x === fx && y === fy)) return [fx, fy];
-    }
-  }, []);
+  const phaseNumber = Math.floor(accuracyRate / 50) + 1;
 
-  const startActivity = useCallback(() => {
-    const initial: Array<[number, number]> = [
+  const selectTargetCoordinate = useCallback(
+    (occupied: Array<[number, number]>): [number, number] => {
+      while (true) {
+        const fx = Math.floor(Math.random() * GRID_DIMENSION);
+        const fy = Math.floor(Math.random() * GRID_DIMENSION);
+        if (!occupied.some(([x, y]) => x === fx && y === fy)) return [fx, fy];
+      }
+    },
+    []
+  );
+
+  const initializeModule = useCallback(() => {
+    const initialSequence: Array<[number, number]> = [
       [9, 9],
       [8, 9],
       [7, 9],
     ];
-    setTrail(initial);
-    setTarget([13, 9]);
-    dirRef.current = [1, 0];
-    setMetric(0);
+    setSequence(initialSequence);
+    setTargetNode([13, 9]);
+    vectorRef.current = [1, 0];
+    setAccuracyRate(0);
     setModuleState('ACTIVE');
   }, []);
 
-  const setDirection = useCallback((next: [number, number]) => {
-    const [cx, cy] = dirRef.current;
+  const updateTrajectoryVector = useCallback((next: [number, number]) => {
+    const [cx, cy] = vectorRef.current;
     if (cx + next[0] === 0 && cy + next[1] === 0) return;
-    dirRef.current = next;
+    vectorRef.current = next;
   }, []);
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
+    const handleKeyInput = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === 'ArrowUp' || e.key === 'w') {
         e.preventDefault();
-        setDirection([0, -1]);
+        updateTrajectoryVector([0, -1]);
       } else if (e.key === 'ArrowDown' || e.key === 's') {
         e.preventDefault();
-        setDirection([0, 1]);
+        updateTrajectoryVector([0, 1]);
       } else if (e.key === 'ArrowLeft' || e.key === 'a') {
         e.preventDefault();
-        setDirection([-1, 0]);
+        updateTrajectoryVector([-1, 0]);
       } else if (e.key === 'ArrowRight' || e.key === 'd') {
         e.preventDefault();
-        setDirection([1, 0]);
+        updateTrajectoryVector([1, 0]);
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [setDirection]);
+    window.addEventListener('keydown', handleKeyInput);
+    return () => window.removeEventListener('keydown', handleKeyInput);
+  }, [updateTrajectoryVector]);
 
   useEffect(() => {
     if (moduleState !== 'ACTIVE') return;
-    const timer = setInterval(() => {
-      setTrail((prev) => {
+
+    const moduleCycle = () => {
+      setSequence((prev) => {
         const [hx, hy] = prev[0];
-        const [dx, dy] = dirRef.current;
+        const [dx, dy] = vectorRef.current;
         const nx = hx + dx;
         const ny = hy + dy;
 
         if (
           nx < 0 ||
-          nx >= GRID_SIZE ||
+          nx >= GRID_DIMENSION ||
           ny < 0 ||
-          ny >= GRID_SIZE ||
+          ny >= GRID_DIMENSION ||
           prev.some(([x, y]) => x === nx && y === ny)
         ) {
           setModuleState('COMPLETE');
           return prev;
         }
 
-        const nextBody: Array<[number, number]> = [[nx, ny], ...prev];
-        if (nx === target[0] && ny === target[1]) {
-          setMetric((s) => {
-            const nextMetric = s + 10;
-            if (nextMetric > bestMetric) {
-              setBestMetric(nextMetric);
-              localStorage.setItem('calc_grid_path_peak', String(nextMetric));
+        const nextSequence: Array<[number, number]> = [[nx, ny], ...prev];
+        if (nx === targetNode[0] && ny === targetNode[1]) {
+          setAccuracyRate((current) => {
+            const nextRate = current + 10;
+            if (nextRate > benchmark) {
+              setBenchmark(nextRate);
+              localStorage.setItem('calc_grid_path_benchmark', String(nextRate));
             }
-            return nextMetric;
+            return nextRate;
           });
-          setTarget(spawnTarget(nextBody));
+          setTargetNode(selectTargetCoordinate(nextSequence));
         } else {
-          nextBody.pop();
+          nextSequence.pop();
         }
-        return nextBody;
+        return nextSequence;
       });
-    }, 125);
+    };
 
+    const timer = setInterval(moduleCycle, 125);
     return () => clearInterval(timer);
-  }, [moduleState, target, spawnTarget, bestMetric]);
+  }, [moduleState, targetNode, selectTargetCoordinate, benchmark]);
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="w-full max-w-[380px] border-b border-slate-200 pb-2.5 text-center sm:text-left">
-        <div className="text-xs font-medium text-slate-500">
-          Critical Thinking Exercise #1
+    <div
+      className="flex flex-col items-center gap-4 bg-white py-2"
+      style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: '#333333' }}
+    >
+      <div className="w-full max-w-[380px] border-b border-[#e0e0e0] pb-2 flex items-center justify-between text-xs">
+        <div>
+          <span className="italic text-[#555555]">Interactive Module 1 · </span>
+          <span>Coordinate Path Diagram</span>
         </div>
-        <div className="text-sm font-semibold text-slate-900">
-          Coordinate Grid Pathing Module
-        </div>
+        <span>Phase: {phaseNumber}</span>
       </div>
 
-      <div className="w-full max-w-[380px] flex items-center justify-between">
-        <div className="flex items-center gap-4 text-xs sm:text-sm font-mono-num text-slate-700">
+      <div className="w-full max-w-[380px] flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-4">
           <span>
-            Performance Metric: <strong className="text-slate-900">{metric}</strong>
+            Accuracy Rate: <strong>{accuracyRate}</strong>
           </span>
-          <span className="text-slate-500">
-            Best: <strong className="text-slate-700">{bestMetric}</strong>
+          <span className="text-[#555555]">
+            Benchmark: <strong>{benchmark}</strong>
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           {moduleState === 'ACTIVE' ? (
             <button
               type="button"
               onClick={() => setModuleState('PAUSED')}
-              className="px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-medium inline-flex items-center gap-1.5 border border-slate-200"
+              className="underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
             >
-              <Pause className="w-3.5 h-3.5" /> Pause
+              Pause Observation
             </button>
           ) : (
             <button
               type="button"
               onClick={() =>
-                moduleState === 'PAUSED' ? setModuleState('ACTIVE') : startActivity()
+                moduleState === 'PAUSED' ? setModuleState('ACTIVE') : initializeModule()
               }
-              className="px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium inline-flex items-center gap-1.5"
+              className="underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
             >
-              <Play className="w-3.5 h-3.5" />
-              {moduleState === 'PAUSED' ? 'Resume' : 'Begin Activity'}
+              {moduleState === 'PAUSED' ? 'Resume Observation' : 'Begin Exercise'}
             </button>
           )}
           <button
             type="button"
-            onClick={startActivity}
-            aria-label="Reset Exercise"
-            className="p-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+            onClick={initializeModule}
+            className="underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#555555]"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            New Phase
           </button>
         </div>
       </div>
 
       <div
-        className="relative grid bg-slate-100 border border-slate-300 rounded-md p-1.5"
+        className="relative grid bg-white border border-[#cccccc] p-1"
         style={{
-          gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${GRID_DIMENSION}, minmax(0, 1fr))`,
           width: 'min(100%, 380px)',
           aspectRatio: '1 / 1',
         }}
       >
-        {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, idx) => {
-          const x = idx % GRID_SIZE;
-          const y = Math.floor(idx / GRID_SIZE);
-          const isHead = trail[0][0] === x && trail[0][1] === y;
-          const isBody = trail.some(([sx, sy], i) => i > 0 && sx === x && sy === y);
-          const isTarget = target[0] === x && target[1] === y;
+        {Array.from({ length: GRID_DIMENSION * GRID_DIMENSION }).map((_, idx) => {
+          const x = idx % GRID_DIMENSION;
+          const y = Math.floor(idx / GRID_DIMENSION);
+          const isHead = sequence[0][0] === x && sequence[0][1] === y;
+          const isBody = sequence.some(([sx, sy], i) => i > 0 && sx === x && sy === y);
+          const isTarget = targetNode[0] === x && targetNode[1] === y;
 
           return (
             <div
               key={idx}
-              className={`rounded-[1px] m-[0.5px] ${
-                isHead
-                  ? 'bg-slate-900'
+              style={{
+                backgroundColor: isHead
+                  ? '#333333'
                   : isBody
-                    ? 'bg-slate-600'
+                    ? '#777777'
                     : isTarget
-                      ? 'bg-slate-800 ring-1 ring-inset ring-white'
-                      : 'bg-white'
-              }`}
+                      ? '#111111'
+                      : '#ffffff',
+                border: isTarget ? '1px solid #ffffff' : '0.5px solid #f0f0f0',
+              }}
             />
           );
         })}
 
-        {moduleState === 'READY' && (
-          <div className="absolute inset-0 bg-white/95 rounded-md flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-base font-semibold text-slate-900">
-              Interactive Module Instructions
+        {moduleState === 'READ_FIRST' && (
+          <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center space-y-3">
+            <p className="text-xs uppercase tracking-widest text-[#666666]">Read First</p>
+            <h3 className="text-base font-normal text-[#333333]">
+              Coordinate Transition Diagram
             </h3>
-            <p className="mt-1 text-xs text-slate-600 max-w-xs">
-              Steer across the grid using Arrow keys, WASD, or the directional controls
-              below while avoiding self-intersections.
+            <p className="text-xs text-[#4a4a4a] max-w-xs leading-relaxed">
+              Review the transition constraints: use directional keys (Arrow keys or WASD)
+              or the coordinate controls below to connect nodes without boundary or path
+              intersections.
             </p>
             <button
               type="button"
-              onClick={startActivity}
-              className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
+              onClick={initializeModule}
+              className="pt-2 text-sm underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
             >
-              Begin Activity
+              Launch Simulation →
             </button>
           </div>
         )}
 
         {moduleState === 'COMPLETE' && (
-          <div className="absolute inset-0 bg-white/95 rounded-md flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-base font-semibold text-slate-900">Exercise Complete</h3>
-            <p className="mt-1 text-sm font-mono-num text-slate-600">
-              Performance Metric: {metric}
+          <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center space-y-2">
+            <h3 className="text-base font-normal text-[#333333]">
+              Phase {phaseNumber} Concluded
+            </h3>
+            <p className="text-xs text-[#4a4a4a]">
+              Accuracy Rate: {accuracyRate} · Benchmark: {benchmark}
             </p>
             <button
               type="button"
-              onClick={startActivity}
-              className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
+              onClick={initializeModule}
+              className="pt-2 text-sm underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
             >
-              Reset Exercise
+              Begin Exercise →
             </button>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-1.5 w-36">
+      <div className="grid grid-cols-3 gap-1.5 w-32">
         <div />
         <button
           type="button"
-          aria-label="Move Up"
-          onClick={() => setDirection([0, -1])}
-          className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
+          aria-label="Vector Up"
+          onClick={() => updateTrajectoryVector([0, -1])}
+          className="h-9 bg-white hover:bg-[#f5f5f5] border border-[#cccccc] flex items-center justify-center text-[#333333] cursor-pointer"
         >
-          <ArrowUp className="w-4 h-4" />
+          <ArrowUp className="w-3.5 h-3.5" />
         </button>
         <div />
         <button
           type="button"
-          aria-label="Move Left"
-          onClick={() => setDirection([-1, 0])}
-          className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
+          aria-label="Vector Left"
+          onClick={() => updateTrajectoryVector([-1, 0])}
+          className="h-9 bg-white hover:bg-[#f5f5f5] border border-[#cccccc] flex items-center justify-center text-[#333333] cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
-          aria-label="Move Down"
-          onClick={() => setDirection([0, 1])}
-          className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
+          aria-label="Vector Down"
+          onClick={() => updateTrajectoryVector([0, 1])}
+          className="h-9 bg-white hover:bg-[#f5f5f5] border border-[#cccccc] flex items-center justify-center text-[#333333] cursor-pointer"
         >
-          <ArrowDown className="w-4 h-4" />
+          <ArrowDown className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
-          aria-label="Move Right"
-          onClick={() => setDirection([1, 0])}
-          className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
+          aria-label="Vector Right"
+          onClick={() => updateTrajectoryVector([1, 0])}
+          className="h-9 bg-white hover:bg-[#f5f5f5] border border-[#cccccc] flex items-center justify-center text-[#333333] cursor-pointer"
         >
-          <ArrowRight className="w-4 h-4" />
+          <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

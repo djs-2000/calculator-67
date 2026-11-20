@@ -1,217 +1,241 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RotateCcw, Play } from 'lucide-react';
 
-type ModuleState = 'READY' | 'ACTIVE' | 'COMPLETE' | 'CLEARED';
+type SimulationPhase = 'READ_FIRST' | 'ACTIVE' | 'COMPLETE' | 'CLEARED';
 
 export const ReflectionCanvas: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [moduleState, setModuleState] = useState<ModuleState>('READY');
-  const [metric, setMetric] = useState(0);
-  const [runId, setRunId] = useState(0);
+  const diagramRef = useRef<HTMLCanvasElement | null>(null);
+  const [moduleState, setModuleState] = useState<SimulationPhase>('READ_FIRST');
+  const [accuracyRate, setAccuracyRate] = useState(0);
+  const [benchmark, setBenchmark] = useState(() =>
+    Number(localStorage.getItem('calc_reflection_benchmark') || '0')
+  );
+  const [phaseCount, setPhaseCount] = useState(1);
 
   useEffect(() => {
     if (moduleState !== 'ACTIVE') return;
-    const canvas = canvasRef.current;
+    const canvas = diagramRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const W = canvas.width;
     const H = canvas.height;
-    const barW = 76;
-    const barH = 10;
-    let barX = (W - barW) / 2;
-    let orbX = W / 2;
-    let orbY = H - 30;
-    let dx = 3;
-    let dy = -3;
-    let currentMetric = 0;
+    const reflectorW = 76;
+    const reflectorH = 10;
+    let reflectorX = (W - reflectorW) / 2;
+    let pointX = W / 2;
+    let pointY = H - 30;
+    let vx = 3;
+    let vy = -3;
+    let runningAccuracy = 0;
     let leftPressed = false;
     let rightPressed = false;
     let rafId = 0;
-    let stopped = false;
+    let halted = false;
 
     const rows = 4;
     const cols = 7;
-    const targetW = 46;
-    const targetH = 14;
-    const pad = 6;
+    const nodeW = 46;
+    const nodeH = 14;
+    const spacing = 6;
     const offsetLeft = 22;
     const offsetTop = 26;
-    const rowColors = ['#1E293B', '#334155', '#475569', '#64748B'];
+    const rowTones = ['#333333', '#555555', '#777777', '#999999'];
 
-    const targets: Array<Array<{ x: number; y: number; active: boolean }>> = [];
+    const nodes: Array<Array<{ x: number; y: number; active: boolean }>> = [];
     for (let r = 0; r < rows; r++) {
-      targets[r] = [];
+      nodes[r] = [];
       for (let c = 0; c < cols; c++) {
-        targets[r][c] = {
-          x: offsetLeft + c * (targetW + pad),
-          y: offsetTop + r * (targetH + pad),
+        nodes[r][c] = {
+          x: offsetLeft + c * (nodeW + spacing),
+          y: offsetTop + r * (nodeH + spacing),
           active: true,
         };
       }
     }
 
-    const onKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'd') rightPressed = true;
       if (e.key === 'ArrowLeft' || e.key === 'a') leftPressed = true;
     };
-    const onKeyUp = (e: KeyboardEvent) => {
+    const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'd') rightPressed = false;
       if (e.key === 'ArrowLeft' || e.key === 'a') leftPressed = false;
     };
-    const onPointerMove = (e: PointerEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       const relX = ((e.clientX - rect.left) / rect.width) * W;
-      barX = Math.max(0, Math.min(W - barW, relX - barW / 2));
+      reflectorX = Math.max(0, Math.min(W - reflectorW, relX - reflectorW / 2));
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    canvas.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    canvas.addEventListener('pointermove', handlePointerMove);
 
-    const frame = () => {
-      if (stopped) return;
-      ctx.fillStyle = '#FFFFFF';
+    const moduleCycle = () => {
+      if (halted) return;
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
 
       let remaining = 0;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          const b = targets[r][c];
-          if (!b.active) continue;
+          const node = nodes[r][c];
+          if (!node.active) continue;
           remaining++;
-          ctx.fillStyle = rowColors[r % rowColors.length];
-          ctx.fillRect(b.x, b.y, targetW, targetH);
+          ctx.fillStyle = rowTones[r % rowTones.length];
+          ctx.fillRect(node.x, node.y, nodeW, nodeH);
 
-          if (orbX > b.x && orbX < b.x + targetW && orbY > b.y && orbY < b.y + targetH) {
-            dy = -dy;
-            b.active = false;
-            currentMetric += 10;
-            setMetric(currentMetric);
+          if (
+            pointX > node.x &&
+            pointX < node.x + nodeW &&
+            pointY > node.y &&
+            pointY < node.y + nodeH
+          ) {
+            vy = -vy;
+            node.active = false;
+            runningAccuracy += 10;
+            setAccuracyRate(runningAccuracy);
+            setBenchmark((prevBench) => {
+              if (runningAccuracy > prevBench) {
+                localStorage.setItem('calc_reflection_benchmark', String(runningAccuracy));
+                return runningAccuracy;
+              }
+              return prevBench;
+            });
           }
         }
       }
 
       if (remaining === 0) {
-        stopped = true;
+        halted = true;
         setModuleState('CLEARED');
         return;
       }
 
       ctx.beginPath();
-      ctx.arc(orbX, orbY, 6, 0, Math.PI * 2);
-      ctx.fillStyle = '#0F172A';
+      ctx.arc(pointX, pointY, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#333333';
       ctx.fill();
       ctx.closePath();
 
-      ctx.fillStyle = '#0F172A';
-      ctx.fillRect(barX, H - barH - 10, barW, barH);
+      ctx.fillStyle = '#333333';
+      ctx.fillRect(reflectorX, H - reflectorH - 10, reflectorW, reflectorH);
 
-      if (orbX + dx > W - 6 || orbX + dx < 6) dx = -dx;
-      if (orbY + dy < 6) {
-        dy = -dy;
-      } else if (orbY + dy > H - barH - 14) {
-        if (orbX > barX && orbX < barX + barW) {
-          const hit = (orbX - (barX + barW / 2)) / (barW / 2);
-          dx = hit * 4;
-          dy = -Math.abs(dy);
-        } else if (orbY + dy > H - 6) {
-          stopped = true;
+      if (pointX + vx > W - 6 || pointX + vx < 6) vx = -vx;
+      if (pointY + vy < 6) {
+        vy = -vy;
+      } else if (pointY + vy > H - reflectorH - 14) {
+        if (pointX > reflectorX && pointX < reflectorX + reflectorW) {
+          const ratio = (pointX - (reflectorX + reflectorW / 2)) / (reflectorW / 2);
+          vx = ratio * 4;
+          vy = -Math.abs(vy);
+        } else if (pointY + vy > H - 6) {
+          halted = true;
           setModuleState('COMPLETE');
           return;
         }
       }
 
-      if (rightPressed) barX = Math.min(W - barW, barX + 5);
-      if (leftPressed) barX = Math.max(0, barX - 5);
+      if (rightPressed) reflectorX = Math.min(W - reflectorW, reflectorX + 5);
+      if (leftPressed) reflectorX = Math.max(0, reflectorX - 5);
 
-      orbX += dx;
-      orbY += dy;
-      rafId = requestAnimationFrame(frame);
+      pointX += vx;
+      pointY += vy;
+      rafId = requestAnimationFrame(moduleCycle);
     };
 
-    rafId = requestAnimationFrame(frame);
+    rafId = requestAnimationFrame(moduleCycle);
     return () => {
-      stopped = true;
+      halted = true;
       cancelAnimationFrame(rafId);
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
-      canvas.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      canvas.removeEventListener('pointermove', handlePointerMove);
     };
-  }, [moduleState, runId]);
+  }, [moduleState, phaseCount]);
 
-  const start = () => {
-    setMetric(0);
+  const initializeSimulation = () => {
+    setAccuracyRate(0);
     setModuleState('ACTIVE');
-    setRunId((n) => n + 1);
+    setPhaseCount((n) => n + 1);
   };
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="w-full max-w-[400px] border-b border-slate-200 pb-2.5 text-center sm:text-left">
-        <div className="text-xs font-medium text-slate-500">
-          Critical Thinking Exercise #3
+    <div
+      className="flex flex-col items-center gap-3 bg-white py-2"
+      style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: '#333333' }}
+    >
+      <div className="w-full max-w-[400px] border-b border-[#e0e0e0] pb-2 flex items-center justify-between text-xs">
+        <div>
+          <span className="italic text-[#555555]">Interactive Module 3 · </span>
+          <span>Elastic Reflection Diagram</span>
         </div>
-        <div className="text-sm font-semibold text-slate-900">
-          Elastic Reflection Geometry Module
-        </div>
+        <span>Phase: {phaseCount}</span>
       </div>
 
-      <div className="w-full max-w-[400px] flex items-center justify-between">
-        <div className="text-xs sm:text-sm font-mono-num text-slate-700">
-          Performance Metric: <strong className="text-slate-900">{metric}</strong>
+      <div className="w-full max-w-[400px] flex items-center justify-between text-xs">
+        <div className="flex items-center gap-4">
+          <span>
+            Accuracy Rate: <strong>{accuracyRate}</strong>
+          </span>
+          <span className="text-[#555555]">
+            Benchmark: <strong>{benchmark}</strong>
+          </span>
         </div>
         <button
           type="button"
-          onClick={start}
-          className="px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-medium inline-flex items-center gap-1.5 border border-slate-200"
+          onClick={initializeSimulation}
+          className="underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
         >
-          <RotateCcw className="w-3.5 h-3.5" /> Reset Exercise
+          New Phase
         </button>
       </div>
 
-      <div className="relative rounded-md overflow-hidden border border-slate-300 bg-white">
+      <div className="relative border border-[#cccccc] bg-white">
         <canvas
-          ref={canvasRef}
+          ref={diagramRef}
           width={400}
           height={290}
           className="block max-w-full cursor-pointer touch-none"
         />
 
-        {moduleState === 'READY' && (
-          <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-base font-semibold text-slate-900">
-              Interactive Module Instructions
+        {moduleState === 'READ_FIRST' && (
+          <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center space-y-3">
+            <p className="text-xs uppercase tracking-widest text-[#666666]">Read First</p>
+            <h3 className="text-base font-normal text-[#333333]">
+              Incidence &amp; Reflection Vector Diagram
             </h3>
-            <p className="mt-1 text-xs text-slate-600 max-w-xs">
-              Observe reflection angles by moving the reflector bar with your pointer,
-              touch, or Left/Right arrow keys.
+            <p className="text-xs text-[#4a4a4a] max-w-xs leading-relaxed">
+              Position the horizontal reflector segment using pointer motion or Left/Right
+              arrow keys to redirect the vector trajectory across upper target nodes.
             </p>
             <button
               type="button"
-              onClick={start}
-              className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium inline-flex items-center gap-1.5"
+              onClick={initializeSimulation}
+              className="pt-2 text-sm underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
             >
-              <Play className="w-3.5 h-3.5" /> Begin Activity
+              Launch Simulation →
             </button>
           </div>
         )}
 
         {(moduleState === 'COMPLETE' || moduleState === 'CLEARED') && (
-          <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-base font-semibold text-slate-900">
-              {moduleState === 'CLEARED' ? 'All Targets Cleared' : 'Exercise Complete'}
+          <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center space-y-2">
+            <h3 className="text-base font-normal text-[#333333]">
+              {moduleState === 'CLEARED'
+                ? 'All Diagram Nodes Verified'
+                : `Phase ${phaseCount} Concluded`}
             </h3>
-            <p className="mt-1 text-sm font-mono-num text-slate-600">
-              Performance Metric: {metric}
+            <p className="text-xs text-[#4a4a4a]">
+              Accuracy Rate: {accuracyRate} · Benchmark: {benchmark}
             </p>
             <button
               type="button"
-              onClick={start}
-              className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
+              onClick={initializeSimulation}
+              className="pt-2 text-sm underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
             >
-              Reset Exercise
+              Begin Exercise →
             </button>
           </div>
         )}

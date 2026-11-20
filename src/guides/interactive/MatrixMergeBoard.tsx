@@ -1,98 +1,101 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  RotateCcw,
   ArrowUp,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
 } from 'lucide-react';
 
-function createEmptyBoard(): number[][] {
+function initializeEmptyMatrix(): number[][] {
   return Array.from({ length: 4 }, () => [0, 0, 0, 0]);
 }
 
-function addRandomCell(board: number[][]): number[][] {
-  const empty: Array<[number, number]> = [];
+function seedMatrixEntry(matrix: number[][]): number[][] {
+  const available: Array<[number, number]> = [];
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
-      if (board[r][c] === 0) empty.push([r, c]);
+      if (matrix[r][c] === 0) available.push([r, c]);
     }
   }
-  if (empty.length === 0) return board;
-  const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-  const next = board.map((row) => [...row]);
+  if (available.length === 0) return matrix;
+  const [r, c] = available[Math.floor(Math.random() * available.length)];
+  const next = matrix.map((row) => [...row]);
   next[r][c] = Math.random() < 0.9 ? 2 : 4;
   return next;
 }
 
-function slideRowLeft(row: number[]): { row: number[]; points: number } {
+function consolidateRowLeft(row: number[]): { row: number[]; increment: number } {
   const nonZero = row.filter((n) => n !== 0);
   const out: number[] = [];
-  let points = 0;
+  let increment = 0;
   for (let i = 0; i < nonZero.length; i++) {
     if (i + 1 < nonZero.length && nonZero[i] === nonZero[i + 1]) {
       const merged = nonZero[i] * 2;
       out.push(merged);
-      points += merged;
+      increment += merged;
       i++;
     } else {
       out.push(nonZero[i]);
     }
   }
   while (out.length < 4) out.push(0);
-  return { row: out, points };
+  return { row: out, increment };
 }
 
-function rotateClockwise(board: number[][]): number[][] {
-  const next = createEmptyBoard();
+function transposeClockwise(matrix: number[][]): number[][] {
+  const next = initializeEmptyMatrix();
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
-      next[c][3 - r] = board[r][c];
+      next[c][3 - r] = matrix[r][c];
     }
   }
   return next;
 }
 
-function canShift(board: number[][]): boolean {
+function evaluateAvailableTransitions(matrix: number[][]): boolean {
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
-      if (board[r][c] === 0) return true;
-      if (r < 3 && board[r][c] === board[r + 1][c]) return true;
-      if (c < 3 && board[r][c] === board[r][c + 1]) return true;
+      if (matrix[r][c] === 0) return true;
+      if (r < 3 && matrix[r][c] === matrix[r + 1][c]) return true;
+      if (c < 3 && matrix[r][c] === matrix[r][c + 1]) return true;
     }
   }
   return false;
 }
 
-const CELL_STYLES: Record<number, string> = {
-  0: 'bg-slate-50 text-transparent border-slate-200',
-  2: 'bg-white text-slate-900 border-slate-300',
-  4: 'bg-slate-100 text-slate-900 border-slate-300',
-  8: 'bg-slate-200 text-slate-900 border-slate-300',
-  16: 'bg-slate-300 text-slate-900 border-slate-400',
-  32: 'bg-slate-400 text-white border-slate-500',
-  64: 'bg-slate-500 text-white border-slate-600',
-  128: 'bg-slate-600 text-white border-slate-700',
-  256: 'bg-slate-700 text-white border-slate-800',
-  512: 'bg-slate-800 text-white border-slate-900',
-  1024: 'bg-slate-900 text-white border-slate-950',
-  2048: 'bg-slate-950 text-white border-slate-950',
+const CELL_TONES: Record<number, string> = {
+  0: 'bg-white text-transparent border-[#e5e5e5]',
+  2: 'bg-[#fafafa] text-[#333333] border-[#d4d4d4]',
+  4: 'bg-[#f4f4f4] text-[#333333] border-[#cccccc]',
+  8: 'bg-[#ececec] text-[#333333] border-[#c2c2c2]',
+  16: 'bg-[#e2e2e2] text-[#333333] border-[#b8b8b8]',
+  32: 'bg-[#d4d4d4] text-[#222222] border-[#a3a3a3]',
+  64: 'bg-[#bdbdbd] text-[#111111] border-[#8c8c8c]',
+  128: 'bg-[#737373] text-white border-[#525252]',
+  256: 'bg-[#525252] text-white border-[#404040]',
+  512: 'bg-[#404040] text-white border-[#262626]',
+  1024: 'bg-[#262626] text-white border-[#171717]',
+  2048: 'bg-[#171717] text-white border-[#171717]',
 };
 
 export const MatrixMergeBoard: React.FC = () => {
-  const [board, setBoard] = useState<number[][]>(() =>
-    addRandomCell(addRandomCell(createEmptyBoard()))
+  const [readFirstPending, setReadFirstPending] = useState(true);
+  const [matrix, setMatrix] = useState<number[][]>(() =>
+    seedMatrixEntry(seedMatrixEntry(initializeEmptyMatrix()))
   );
-  const [metric, setMetric] = useState(0);
-  const [bestMetric, setBestMetric] = useState(() =>
-    Number(localStorage.getItem('calc_powers_merge_peak') || '0')
+  const [accuracyRate, setAccuracyRate] = useState(0);
+  const [benchmark, setBenchmark] = useState(() =>
+    Number(localStorage.getItem('calc_powers_merge_benchmark') || '0')
   );
 
-  const stalled = !canShift(board);
+  const stalled = !evaluateAvailableTransitions(matrix);
+  const maxEntry = Math.max(...matrix.flat());
+  const currentPhase = Math.max(1, Math.floor(Math.log2(Math.max(2, maxEntry))) - 1);
 
-  const shift = useCallback(
+  const executeMatrixShift = useCallback(
     (direction: 'left' | 'right' | 'up' | 'down') => {
-      setBoard((prev) => {
+      if (readFirstPending) return;
+      setMatrix((prev) => {
         let rotated = prev.map((r) => [...r]);
         const rotations =
           direction === 'left'
@@ -102,157 +105,183 @@ export const MatrixMergeBoard: React.FC = () => {
               : direction === 'right'
                 ? 2
                 : 3;
-        for (let i = 0; i < rotations; i++) rotated = rotateClockwise(rotated);
+        for (let i = 0; i < rotations; i++) rotated = transposeClockwise(rotated);
 
         let gained = 0;
-        const slid = rotated.map((row) => {
-          const res = slideRowLeft(row);
-          gained += res.points;
+        const consolidated = rotated.map((row) => {
+          const res = consolidateRowLeft(row);
+          gained += res.increment;
           return res.row;
         });
 
-        let restored = slid;
+        let restored = consolidated;
         for (let i = 0; i < (4 - rotations) % 4; i++) {
-          restored = rotateClockwise(restored);
+          restored = transposeClockwise(restored);
         }
 
         if (JSON.stringify(prev) === JSON.stringify(restored)) return prev;
 
         if (gained > 0) {
-          setMetric((s) => {
-            const next = s + gained;
-            if (next > bestMetric) {
-              setBestMetric(next);
-              localStorage.setItem('calc_powers_merge_peak', String(next));
+          setAccuracyRate((current) => {
+            const next = current + gained;
+            if (next > benchmark) {
+              setBenchmark(next);
+              localStorage.setItem('calc_powers_merge_benchmark', String(next));
             }
             return next;
           });
         }
-        return addRandomCell(restored);
+        return seedMatrixEntry(restored);
       });
     },
-    [bestMetric]
+    [benchmark, readFirstPending]
   );
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
+    const handleKeyInput = (e: KeyboardEvent) => {
+      if (readFirstPending) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === 'ArrowLeft' || e.key === 'a') {
         e.preventDefault();
-        shift('left');
+        executeMatrixShift('left');
       } else if (e.key === 'ArrowRight' || e.key === 'd') {
         e.preventDefault();
-        shift('right');
+        executeMatrixShift('right');
       } else if (e.key === 'ArrowUp' || e.key === 'w') {
         e.preventDefault();
-        shift('up');
+        executeMatrixShift('up');
       } else if (e.key === 'ArrowDown' || e.key === 's') {
         e.preventDefault();
-        shift('down');
+        executeMatrixShift('down');
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [shift]);
+    window.addEventListener('keydown', handleKeyInput);
+    return () => window.removeEventListener('keydown', handleKeyInput);
+  }, [executeMatrixShift, readFirstPending]);
 
-  const reset = () => {
-    setBoard(addRandomCell(addRandomCell(createEmptyBoard())));
-    setMetric(0);
+  const initializeNewPhase = () => {
+    setMatrix(seedMatrixEntry(seedMatrixEntry(initializeEmptyMatrix())));
+    setAccuracyRate(0);
+    setReadFirstPending(false);
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="w-full max-w-[360px] border-b border-slate-200 pb-2.5 text-center sm:text-left">
-        <div className="text-xs font-medium text-slate-500">
-          Critical Thinking Exercise #2
+    <div
+      className="flex flex-col items-center gap-4 bg-white py-2"
+      style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: '#333333' }}
+    >
+      <div className="w-full max-w-[360px] border-b border-[#e0e0e0] pb-2 flex items-center justify-between text-xs">
+        <div>
+          <span className="italic text-[#555555]">Interactive Module 2 · </span>
+          <span>Exponential Matrix Diagram</span>
         </div>
-        <div className="text-sm font-semibold text-slate-900">
-          Exponential Matrix Merging Module
-        </div>
+        <span>Phase: {currentPhase}</span>
       </div>
 
-      <div className="w-full max-w-[360px] flex items-center justify-between">
-        <div className="flex items-center gap-4 text-xs sm:text-sm font-mono-num text-slate-700">
+      <div className="w-full max-w-[360px] flex items-center justify-between text-xs">
+        <div className="flex items-center gap-4">
           <span>
-            Performance Metric: <strong className="text-slate-900">{metric}</strong>
+            Accuracy Rate: <strong>{accuracyRate}</strong>
           </span>
-          <span className="text-slate-500">
-            Best: <strong className="text-slate-700">{bestMetric}</strong>
+          <span className="text-[#555555]">
+            Benchmark: <strong>{benchmark}</strong>
           </span>
         </div>
 
         <button
           type="button"
-          onClick={reset}
-          className="px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-medium inline-flex items-center gap-1.5 border border-slate-200"
+          onClick={initializeNewPhase}
+          className="underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
         >
-          <RotateCcw className="w-3.5 h-3.5" /> Reset
+          New Phase
         </button>
       </div>
 
-      <div className="relative grid grid-cols-4 gap-2 p-2.5 bg-slate-100 border border-slate-300 rounded-md w-full max-w-[360px] aspect-square">
-        {board.flat().map((val, idx) => (
+      <div className="relative grid grid-cols-4 gap-2 p-2 bg-white border border-[#cccccc] w-full max-w-[360px] aspect-square">
+        {matrix.flat().map((val, idx) => (
           <div
             key={idx}
-            className={`rounded border font-mono-num font-bold text-xl flex items-center justify-center ${
-              CELL_STYLES[val] ?? 'bg-slate-950 text-white border-slate-950'
+            className={`border font-normal text-lg flex items-center justify-center ${
+              CELL_TONES[val] ?? 'bg-[#171717] text-white border-[#171717]'
             }`}
           >
             {val > 0 ? val : ''}
           </div>
         ))}
 
-        {stalled && (
-          <div className="absolute inset-0 bg-white/95 rounded-md flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-base font-semibold text-slate-900">Exercise Complete</h3>
-            <p className="mt-1 text-sm font-mono-num text-slate-600">
-              Performance Metric: {metric}
+        {readFirstPending && (
+          <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center space-y-3">
+            <p className="text-xs uppercase tracking-widest text-[#666666]">Read First</p>
+            <h3 className="text-base font-normal text-[#333333]">
+              Exponential Matrix Consolidation
+            </h3>
+            <p className="text-xs text-[#4a4a4a] max-w-xs leading-relaxed">
+              Adjacent equal powers of two consolidate along directional vector shifts
+              (Arrow keys, WASD, or the directional controls below).
             </p>
             <button
               type="button"
-              onClick={reset}
-              className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
+              onClick={() => setReadFirstPending(false)}
+              className="pt-2 text-sm underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
             >
-              Reset Exercise
+              Begin Exercise →
+            </button>
+          </div>
+        )}
+
+        {stalled && !readFirstPending && (
+          <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center space-y-2">
+            <h3 className="text-base font-normal text-[#333333]">
+              Phase {currentPhase} Concluded
+            </h3>
+            <p className="text-xs text-[#4a4a4a]">
+              Accuracy Rate: {accuracyRate} · Benchmark: {benchmark}
+            </p>
+            <button
+              type="button"
+              onClick={initializeNewPhase}
+              className="pt-2 text-sm underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
+            >
+              Begin Exercise →
             </button>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-1.5 w-36">
+      <div className="grid grid-cols-3 gap-1.5 w-32">
         <div />
         <button
           type="button"
-          aria-label="Slide Up"
-          onClick={() => shift('up')}
-          className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
+          aria-label="Shift Up"
+          onClick={() => executeMatrixShift('up')}
+          className="h-9 bg-white hover:bg-[#f5f5f5] border border-[#cccccc] flex items-center justify-center text-[#333333] cursor-pointer"
         >
-          <ArrowUp className="w-4 h-4" />
+          <ArrowUp className="w-3.5 h-3.5" />
         </button>
         <div />
         <button
           type="button"
-          aria-label="Slide Left"
-          onClick={() => shift('left')}
-          className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
+          aria-label="Shift Left"
+          onClick={() => executeMatrixShift('left')}
+          className="h-9 bg-white hover:bg-[#f5f5f5] border border-[#cccccc] flex items-center justify-center text-[#333333] cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
-          aria-label="Slide Down"
-          onClick={() => shift('down')}
-          className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
+          aria-label="Shift Down"
+          onClick={() => executeMatrixShift('down')}
+          className="h-9 bg-white hover:bg-[#f5f5f5] border border-[#cccccc] flex items-center justify-center text-[#333333] cursor-pointer"
         >
-          <ArrowDown className="w-4 h-4" />
+          <ArrowDown className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
-          aria-label="Slide Right"
-          onClick={() => shift('right')}
-          className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
+          aria-label="Shift Right"
+          onClick={() => executeMatrixShift('right')}
+          className="h-9 bg-white hover:bg-[#f5f5f5] border border-[#cccccc] flex items-center justify-center text-[#333333] cursor-pointer"
         >
-          <ArrowRight className="w-4 h-4" />
+          <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
