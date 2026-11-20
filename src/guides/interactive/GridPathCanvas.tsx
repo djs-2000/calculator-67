@@ -1,24 +1,32 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+} from 'lucide-react';
 
-type GameState = 'TITLE_MENU' | 'PLAYING' | 'PAUSED' | 'GAME_OVER';
+type SimState = 'READY' | 'RUNNING' | 'PAUSED' | 'COMPLETE';
 const GRID_SIZE = 18;
 
-export const SnakeCanvas: React.FC = () => {
-  const [gameState, setGameState] = useState<GameState>('TITLE_MENU');
-  const [snake, setSnake] = useState<Array<[number, number]>>([
+export const GridPathCanvas: React.FC = () => {
+  const [simState, setSimState] = useState<SimState>('READY');
+  const [trail, setTrail] = useState<Array<[number, number]>>([
     [9, 9],
     [8, 9],
     [7, 9],
   ]);
-  const [food, setFood] = useState<[number, number]>([13, 9]);
-  const [score, setScore] = useState(0);
-  const [bestScore, setBestScore] = useState(() =>
-    Number(localStorage.getItem('calc_snake_best') || '0')
+  const [target, setTarget] = useState<[number, number]>([13, 9]);
+  const [points, setPoints] = useState(0);
+  const [peakPoints, setPeakPoints] = useState(() =>
+    Number(localStorage.getItem('calc_grid_path_peak') || '0')
   );
   const dirRef = useRef<[number, number]>([1, 0]);
 
-  const spawnFood = useCallback((body: Array<[number, number]>): [number, number] => {
+  const spawnTarget = useCallback((body: Array<[number, number]>): [number, number] => {
     while (true) {
       const fx = Math.floor(Math.random() * GRID_SIZE);
       const fy = Math.floor(Math.random() * GRID_SIZE);
@@ -26,17 +34,17 @@ export const SnakeCanvas: React.FC = () => {
     }
   }, []);
 
-  const startNewGame = useCallback(() => {
+  const startDemo = useCallback(() => {
     const initial: Array<[number, number]> = [
       [9, 9],
       [8, 9],
       [7, 9],
     ];
-    setSnake(initial);
-    setFood([13, 9]);
+    setTrail(initial);
+    setTarget([13, 9]);
     dirRef.current = [1, 0];
-    setScore(0);
-    setGameState('PLAYING');
+    setPoints(0);
+    setSimState('RUNNING');
   }, []);
 
   const setDirection = useCallback((next: [number, number]) => {
@@ -67,9 +75,9 @@ export const SnakeCanvas: React.FC = () => {
   }, [setDirection]);
 
   useEffect(() => {
-    if (gameState !== 'PLAYING') return;
+    if (simState !== 'RUNNING') return;
     const timer = setInterval(() => {
-      setSnake((prev) => {
+      setTrail((prev) => {
         const [hx, hy] = prev[0];
         const [dx, dy] = dirRef.current;
         const nx = hx + dx;
@@ -82,21 +90,21 @@ export const SnakeCanvas: React.FC = () => {
           ny >= GRID_SIZE ||
           prev.some(([x, y]) => x === nx && y === ny)
         ) {
-          setGameState('GAME_OVER');
+          setSimState('COMPLETE');
           return prev;
         }
 
         const nextBody: Array<[number, number]> = [[nx, ny], ...prev];
-        if (nx === food[0] && ny === food[1]) {
-          setScore((s) => {
-            const nextScore = s + 10;
-            if (nextScore > bestScore) {
-              setBestScore(nextScore);
-              localStorage.setItem('calc_snake_best', String(nextScore));
+        if (nx === target[0] && ny === target[1]) {
+          setPoints((s) => {
+            const nextPoints = s + 10;
+            if (nextPoints > peakPoints) {
+              setPeakPoints(nextPoints);
+              localStorage.setItem('calc_grid_path_peak', String(nextPoints));
             }
-            return nextScore;
+            return nextPoints;
           });
-          setFood(spawnFood(nextBody));
+          setTarget(spawnTarget(nextBody));
         } else {
           nextBody.pop();
         }
@@ -105,25 +113,25 @@ export const SnakeCanvas: React.FC = () => {
     }, 125);
 
     return () => clearInterval(timer);
-  }, [gameState, food, spawnFood, bestScore]);
+  }, [simState, target, spawnTarget, peakPoints]);
 
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="w-full max-w-[380px] flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm font-mono-num text-slate-700">
           <span>
-            Score: <strong className="text-slate-900">{score}</strong>
+            Points: <strong className="text-slate-900">{points}</strong>
           </span>
           <span className="text-slate-500">
-            Best: <strong className="text-slate-700">{bestScore}</strong>
+            Peak: <strong className="text-slate-700">{peakPoints}</strong>
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          {gameState === 'PLAYING' ? (
+          {simState === 'RUNNING' ? (
             <button
               type="button"
-              onClick={() => setGameState('PAUSED')}
+              onClick={() => setSimState('PAUSED')}
               className="px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-medium inline-flex items-center gap-1.5 border border-slate-200"
             >
               <Pause className="w-3.5 h-3.5" /> Pause
@@ -132,18 +140,18 @@ export const SnakeCanvas: React.FC = () => {
             <button
               type="button"
               onClick={() =>
-                gameState === 'PAUSED' ? setGameState('PLAYING') : startNewGame()
+                simState === 'PAUSED' ? setSimState('RUNNING') : startDemo()
               }
               className="px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium inline-flex items-center gap-1.5"
             >
               <Play className="w-3.5 h-3.5" />
-              {gameState === 'PAUSED' ? 'Resume' : 'Start Game'}
+              {simState === 'PAUSED' ? 'Resume' : 'Start Demo'}
             </button>
           )}
           <button
             type="button"
-            onClick={startNewGame}
-            aria-label="Restart Snake"
+            onClick={startDemo}
+            aria-label="Restart Grid Path Demo"
             className="p-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -162,9 +170,9 @@ export const SnakeCanvas: React.FC = () => {
         {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, idx) => {
           const x = idx % GRID_SIZE;
           const y = Math.floor(idx / GRID_SIZE);
-          const isHead = snake[0][0] === x && snake[0][1] === y;
-          const isBody = snake.some(([sx, sy], i) => i > 0 && sx === x && sy === y);
-          const isFood = food[0] === x && food[1] === y;
+          const isHead = trail[0][0] === x && trail[0][1] === y;
+          const isBody = trail.some(([sx, sy], i) => i > 0 && sx === x && sy === y);
+          const isTarget = target[0] === x && target[1] === y;
 
           return (
             <div
@@ -174,7 +182,7 @@ export const SnakeCanvas: React.FC = () => {
                   ? 'bg-emerald-700'
                   : isBody
                     ? 'bg-emerald-600/80'
-                    : isFood
+                    : isTarget
                       ? 'bg-red-600'
                       : 'bg-white'
               }`}
@@ -182,40 +190,41 @@ export const SnakeCanvas: React.FC = () => {
           );
         })}
 
-        {gameState === 'TITLE_MENU' && (
+        {simState === 'READY' && (
           <div className="absolute inset-0 bg-white/90 rounded-lg flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-lg font-semibold text-slate-900">Classic Snake</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Grid Pathing Guide</h3>
             <p className="mt-1 text-xs text-slate-600 max-w-xs">
-              Use Arrow keys, WASD, or the directional buttons below to steer.
+              Practice turns and loop-avoidance pathing using Arrow keys, WASD, or the
+              directional controls below.
             </p>
             <button
               type="button"
-              onClick={startNewGame}
+              onClick={startDemo}
               className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
             >
-              Start Game
+              Start Walkthrough
             </button>
           </div>
         )}
 
-        {gameState === 'GAME_OVER' && (
+        {simState === 'COMPLETE' && (
           <div className="absolute inset-0 bg-white/90 rounded-lg flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-lg font-semibold text-slate-900">Game Over</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Run Complete</h3>
             <p className="mt-1 text-sm font-mono-num text-slate-600">
-              Final Score: {score}
+              Final Points: {points}
             </p>
             <button
               type="button"
-              onClick={startNewGame}
+              onClick={startDemo}
               className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
             >
-              Play Again
+              Restart Demo
             </button>
           </div>
         )}
       </div>
 
-      {/* On-screen D-Pad */}
+      {/* Directional Controls */}
       <div className="grid grid-cols-3 gap-1.5 w-36">
         <div />
         <button

@@ -1,20 +1,20 @@
-export interface GameCategory {
+export interface GuideCategory {
   id: string;
   name: string;
   slug: string;
   sort_order: number;
 }
 
-export type PlayMode = 'builtin' | 'embed' | 'external';
+export type GuideMode = 'builtin' | 'embed' | 'external';
 
-export interface GameItem {
+export interface GuideItem {
   id: string;
   slug: string;
   title: string;
   description: string;
   category_id: string;
   thumbnail_url: string;
-  play_mode: PlayMode;
+  mode: GuideMode;
   embed_url: string | null;
   external_url: string | null;
   is_active: boolean;

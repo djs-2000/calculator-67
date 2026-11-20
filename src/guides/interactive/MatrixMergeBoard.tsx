@@ -1,11 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import {
+  RotateCcw,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+} from 'lucide-react';
 
 function createEmptyBoard(): number[][] {
   return Array.from({ length: 4 }, () => [0, 0, 0, 0]);
 }
 
-function addRandomTile(board: number[][]): number[][] {
+function addRandomCell(board: number[][]): number[][] {
   const empty: Array<[number, number]> = [];
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
@@ -47,7 +53,7 @@ function rotateClockwise(board: number[][]): number[][] {
   return next;
 }
 
-function canMove(board: number[][]): boolean {
+function canShift(board: number[][]): boolean {
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
       if (board[r][c] === 0) return true;
@@ -58,7 +64,7 @@ function canMove(board: number[][]): boolean {
   return false;
 }
 
-const TILE_STYLES: Record<number, string> = {
+const CELL_STYLES: Record<number, string> = {
   0: 'bg-slate-100 text-transparent border-slate-200',
   2: 'bg-white text-slate-900 border-slate-300',
   4: 'bg-slate-50 text-slate-900 border-slate-300',
@@ -73,18 +79,18 @@ const TILE_STYLES: Record<number, string> = {
   2048: 'bg-slate-900 text-white border-slate-900',
 };
 
-export const Puzzle2048: React.FC = () => {
+export const MatrixMergeBoard: React.FC = () => {
   const [board, setBoard] = useState<number[][]>(() =>
-    addRandomTile(addRandomTile(createEmptyBoard()))
+    addRandomCell(addRandomCell(createEmptyBoard()))
   );
-  const [score, setScore] = useState(0);
-  const [bestScore, setBestScore] = useState(() =>
-    Number(localStorage.getItem('calc_2048_best') || '0')
+  const [points, setPoints] = useState(0);
+  const [peakPoints, setPeakPoints] = useState(() =>
+    Number(localStorage.getItem('calc_powers_merge_peak') || '0')
   );
 
-  const gameOver = !canMove(board);
+  const stalled = !canShift(board);
 
-  const move = useCallback(
+  const shift = useCallback(
     (direction: 'left' | 'right' | 'up' | 'down') => {
       setBoard((prev) => {
         let rotated = prev.map((r) => [...r]);
@@ -113,19 +119,19 @@ export const Puzzle2048: React.FC = () => {
         if (JSON.stringify(prev) === JSON.stringify(restored)) return prev;
 
         if (gained > 0) {
-          setScore((s) => {
+          setPoints((s) => {
             const next = s + gained;
-            if (next > bestScore) {
-              setBestScore(next);
-              localStorage.setItem('calc_2048_best', String(next));
+            if (next > peakPoints) {
+              setPeakPoints(next);
+              localStorage.setItem('calc_powers_merge_peak', String(next));
             }
             return next;
           });
         }
-        return addRandomTile(restored);
+        return addRandomCell(restored);
       });
     },
-    [bestScore]
+    [peakPoints]
   );
 
   useEffect(() => {
@@ -133,25 +139,25 @@ export const Puzzle2048: React.FC = () => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === 'ArrowLeft' || e.key === 'a') {
         e.preventDefault();
-        move('left');
+        shift('left');
       } else if (e.key === 'ArrowRight' || e.key === 'd') {
         e.preventDefault();
-        move('right');
+        shift('right');
       } else if (e.key === 'ArrowUp' || e.key === 'w') {
         e.preventDefault();
-        move('up');
+        shift('up');
       } else if (e.key === 'ArrowDown' || e.key === 's') {
         e.preventDefault();
-        move('down');
+        shift('down');
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [move]);
+  }, [shift]);
 
   const reset = () => {
-    setBoard(addRandomTile(addRandomTile(createEmptyBoard())));
-    setScore(0);
+    setBoard(addRandomCell(addRandomCell(createEmptyBoard())));
+    setPoints(0);
   };
 
   return (
@@ -159,10 +165,10 @@ export const Puzzle2048: React.FC = () => {
       <div className="w-full max-w-[360px] flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm font-mono-num text-slate-700">
           <span>
-            Score: <strong className="text-slate-900">{score}</strong>
+            Points: <strong className="text-slate-900">{points}</strong>
           </span>
           <span className="text-slate-500">
-            Best: <strong className="text-slate-700">{bestScore}</strong>
+            Peak: <strong className="text-slate-700">{peakPoints}</strong>
           </span>
         </div>
 
@@ -180,25 +186,25 @@ export const Puzzle2048: React.FC = () => {
           <div
             key={idx}
             className={`rounded-md border font-mono-num font-bold text-xl flex items-center justify-center transition-colors ${
-              TILE_STYLES[val] ?? 'bg-slate-900 text-white border-slate-900'
+              CELL_STYLES[val] ?? 'bg-slate-900 text-white border-slate-900'
             }`}
           >
             {val > 0 ? val : ''}
           </div>
         ))}
 
-        {gameOver && (
+        {stalled && (
           <div className="absolute inset-0 bg-white/90 rounded-lg flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-lg font-semibold text-slate-900">No Moves Left</h3>
+            <h3 className="text-lg font-semibold text-slate-900">No Valid Shifts Left</h3>
             <p className="mt-1 text-sm font-mono-num text-slate-600">
-              Final Score: {score}
+              Final Points: {points}
             </p>
             <button
               type="button"
               onClick={reset}
               className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
             >
-              Play Again
+              Restart Demo
             </button>
           </div>
         )}
@@ -209,7 +215,7 @@ export const Puzzle2048: React.FC = () => {
         <button
           type="button"
           aria-label="Slide Up"
-          onClick={() => move('up')}
+          onClick={() => shift('up')}
           className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
         >
           <ArrowUp className="w-4 h-4" />
@@ -218,7 +224,7 @@ export const Puzzle2048: React.FC = () => {
         <button
           type="button"
           aria-label="Slide Left"
-          onClick={() => move('left')}
+          onClick={() => shift('left')}
           className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -226,7 +232,7 @@ export const Puzzle2048: React.FC = () => {
         <button
           type="button"
           aria-label="Slide Down"
-          onClick={() => move('down')}
+          onClick={() => shift('down')}
           className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
         >
           <ArrowDown className="w-4 h-4" />
@@ -234,7 +240,7 @@ export const Puzzle2048: React.FC = () => {
         <button
           type="button"
           aria-label="Slide Right"
-          onClick={() => move('right')}
+          onClick={() => shift('right')}
           className="h-10 rounded-md bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700"
         >
           <ArrowRight className="w-4 h-4" />

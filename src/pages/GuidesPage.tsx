@@ -4,40 +4,40 @@ import {
   fetchProtectedCatalog,
   clearStoredAccessSession,
 } from '../lib/api';
-import { type GameCategory, type GameItem } from '../games/types';
-import { GamesAccessGate } from '../games/GamesAccessGate';
-import { GamesLibrary } from '../games/GamesLibrary';
+import { type GuideCategory, type GuideItem } from '../guides/types';
+import { GuidesAccessGate } from '../guides/GuidesAccessGate';
+import { GuidesLibrary } from '../guides/GuidesLibrary';
 
-interface GamesPageProps {
+interface GuidesPageProps {
   backendConfigured: boolean;
   onNavigate: (to: string) => void;
   onAuthChange?: (authorized: boolean) => void;
 }
 
-export const GamesPage: React.FC<GamesPageProps> = ({
+export const GuidesPage: React.FC<GuidesPageProps> = ({
   backendConfigured,
   onNavigate,
   onAuthChange,
 }) => {
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
-  const [games, setGames] = useState<GameItem[]>([]);
-  const [categories, setCategories] = useState<GameCategory[]>([]);
+  const [guides, setGuides] = useState<GuideItem[]>([]);
+  const [categories, setCategories] = useState<GuideCategory[]>([]);
 
   const loadCatalog = useCallback(async () => {
     setChecking(true);
     try {
       const data = await fetchProtectedCatalog();
-      if (!Array.isArray(data.games) || !Array.isArray(data.categories)) {
+      if (!Array.isArray(data.guides) || !Array.isArray(data.categories)) {
         throw new Error('Authorization required.');
       }
-      setGames(data.games);
+      setGuides(data.guides);
       setCategories(data.categories);
       setAuthorized(true);
       onAuthChange?.(true);
     } catch {
       clearStoredAccessSession();
-      setGames([]);
+      setGuides([]);
       setCategories([]);
       setAuthorized(false);
       onAuthChange?.(false);
@@ -62,7 +62,7 @@ export const GamesPage: React.FC<GamesPageProps> = ({
   if (!authorized) {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <GamesAccessGate
+        <GuidesAccessGate
           backendConfigured={backendConfigured}
           onAuthorized={loadCatalog}
         />
@@ -72,10 +72,10 @@ export const GamesPage: React.FC<GamesPageProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-      <GamesLibrary
-        games={games}
+      <GuidesLibrary
+        guides={guides}
         categories={categories}
-        onSelectGame={(game) => onNavigate(`/games/${game.slug}`)}
+        onSelectGuide={(guide) => onNavigate(`/guides/${guide.slug}`)}
       />
     </div>
   );

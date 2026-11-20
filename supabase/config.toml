@@ -17,13 +17,13 @@ enable_signup = false
 [functions.verify-access-code]
 verify_jwt = false
 
-[functions.games-catalog]
+[functions.guides-catalog]
 verify_jwt = false
 
 [functions.admin-access-codes]
 verify_jwt = false
 
-[functions.admin-games]
+[functions.admin-guides]
 verify_jwt = false
 
 [functions.admin-categories]

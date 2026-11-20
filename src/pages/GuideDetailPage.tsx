@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, ExternalLink, Loader2 } from 'lucide-react';
 import { fetchProtectedCatalog, clearStoredAccessSession } from '../lib/api';
-import { type GameCategory, type GameItem } from '../games/types';
-import { GamesAccessGate } from '../games/GamesAccessGate';
-import { SnakeCanvas } from '../games/playable/SnakeCanvas';
-import { Puzzle2048 } from '../games/playable/Puzzle2048';
-import { BreakoutCanvas } from '../games/playable/BreakoutCanvas';
-import { MinesweeperBoard } from '../games/playable/MinesweeperBoard';
+import { type GuideCategory, type GuideItem } from '../guides/types';
+import { GuidesAccessGate } from '../guides/GuidesAccessGate';
+import { GridPathCanvas } from '../guides/interactive/GridPathCanvas';
+import { MatrixMergeBoard } from '../guides/interactive/MatrixMergeBoard';
+import { ReflectionCanvas } from '../guides/interactive/ReflectionCanvas';
+import { DeductionGrid } from '../guides/interactive/DeductionGrid';
 
-interface GamePlayerPageProps {
+interface GuideDetailPageProps {
   slug: string;
   backendConfigured: boolean;
   onNavigate: (to: string) => void;
   onAuthChange?: (authorized: boolean) => void;
 }
 
-export const GamePlayerPage: React.FC<GamePlayerPageProps> = ({
+export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
   slug,
   backendConfigured,
   onNavigate,
@@ -23,27 +23,27 @@ export const GamePlayerPage: React.FC<GamePlayerPageProps> = ({
 }) => {
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
-  const [game, setGame] = useState<GameItem | null>(null);
-  const [categoryName, setCategoryName] = useState('Other');
+  const [guide, setGuide] = useState<GuideItem | null>(null);
+  const [categoryName, setCategoryName] = useState('General');
 
-  const loadGame = useCallback(async () => {
+  const loadGuide = useCallback(async () => {
     setChecking(true);
     try {
       const data = await fetchProtectedCatalog();
-      if (!Array.isArray(data.games) || !Array.isArray(data.categories)) {
+      if (!Array.isArray(data.guides) || !Array.isArray(data.categories)) {
         throw new Error('Authorization required.');
       }
-      const found = data.games.find((g) => g.slug === slug) ?? null;
+      const found = data.guides.find((g) => g.slug === slug) ?? null;
       const cat = data.categories.find(
-        (c: GameCategory) => c.id === found?.category_id
+        (c: GuideCategory) => c.id === found?.category_id
       );
-      setGame(found);
-      setCategoryName(cat?.name ?? 'Other');
+      setGuide(found);
+      setCategoryName(cat?.name ?? 'General');
       setAuthorized(true);
       onAuthChange?.(true);
     } catch {
       clearStoredAccessSession();
-      setGame(null);
+      setGuide(null);
       setAuthorized(false);
       onAuthChange?.(false);
     } finally {
@@ -52,8 +52,8 @@ export const GamePlayerPage: React.FC<GamePlayerPageProps> = ({
   }, [slug, onAuthChange]);
 
   useEffect(() => {
-    loadGame();
-  }, [loadGame]);
+    loadGuide();
+  }, [loadGuide]);
 
   if (checking) {
     return (
@@ -67,46 +67,46 @@ export const GamePlayerPage: React.FC<GamePlayerPageProps> = ({
   if (!authorized) {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <GamesAccessGate
+        <GuidesAccessGate
           backendConfigured={backendConfigured}
-          onAuthorized={loadGame}
+          onAuthorized={loadGuide}
         />
       </div>
     );
   }
 
-  if (!game) {
+  if (!guide) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">Game Not Found</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Guide Not Found</h1>
         <p className="mt-1.5 text-sm text-slate-600">
-          This title may have been removed or disabled.
+          This guide entry may have been removed or disabled.
         </p>
         <button
           type="button"
-          onClick={() => onNavigate('/games')}
+          onClick={() => onNavigate('/guides')}
           className="mt-5 px-4 py-2 rounded-md bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 inline-flex items-center gap-1.5"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Games
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Guides
         </button>
       </div>
     );
   }
 
-  const renderBuiltin = () => {
-    switch (game.slug) {
-      case 'snake':
-        return <SnakeCanvas />;
-      case '2048':
-        return <Puzzle2048 />;
-      case 'breakout':
-        return <BreakoutCanvas />;
-      case 'minesweeper':
-        return <MinesweeperBoard />;
+  const renderInteractive = () => {
+    switch (guide.slug) {
+      case 'grid-path':
+        return <GridPathCanvas />;
+      case 'powers-merge':
+        return <MatrixMergeBoard />;
+      case 'elastic-reflection':
+        return <ReflectionCanvas />;
+      case 'adjacency-deduction':
+        return <DeductionGrid />;
       default:
         return (
           <p className="text-sm text-slate-600 py-8 text-center">
-            Built-in player is not registered for this slug.
+            Interactive demonstration is not registered for this guide slug.
           </p>
         );
     }
@@ -118,62 +118,63 @@ export const GamePlayerPage: React.FC<GamePlayerPageProps> = ({
         <div>
           <button
             type="button"
-            onClick={() => onNavigate('/games')}
+            onClick={() => onNavigate('/guides')}
             className="text-xs font-medium text-slate-600 hover:text-slate-900 inline-flex items-center gap-1.5 mb-2"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Games
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Guides
           </button>
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span>{categoryName}</span>
             <span aria-hidden="true">·</span>
             <span>
-              {game.play_mode === 'external'
-                ? 'Official External Link'
-                : game.play_mode === 'embed'
-                  ? 'Embedded Player'
-                  : 'Built-In Player'}
+              {guide.mode === 'external'
+                ? 'Official External Reference'
+                : guide.mode === 'embed'
+                  ? 'Embedded Reference'
+                  : 'Interactive Walkthrough'}
             </span>
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
-            {game.title}
+            {guide.title}
           </h1>
-          <p className="mt-1 text-sm text-slate-600">{game.description}</p>
+          <p className="mt-1 text-sm text-slate-600">{guide.description}</p>
         </div>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-8 shadow-xs">
-        {game.play_mode === 'builtin' && renderBuiltin()}
+        {guide.mode === 'builtin' && renderInteractive()}
 
-        {game.play_mode === 'embed' && game.embed_url && (
+        {guide.mode === 'embed' && guide.embed_url && (
           <div className="space-y-3">
             <div className="aspect-video w-full rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
               <iframe
-                src={game.embed_url}
-                title={game.title}
+                src={guide.embed_url}
+                title={guide.title}
                 className="w-full h-full border-0"
                 sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms"
                 allowFullScreen
               />
             </div>
             <p className="text-xs text-slate-500 text-right">
-              If the embed is blocked by the publisher, visit the official game website.
+              If the embedded frame is restricted by the host, visit the official guide
+              source directly.
             </p>
           </div>
         )}
 
-        {game.play_mode === 'external' && game.external_url && (
+        {guide.mode === 'external' && guide.external_url && (
           <div className="py-10 text-center space-y-4">
             <p className="text-sm text-slate-600 max-w-md mx-auto">
-              This game is hosted on its official website and does not permit third-party
-              embedding.
+              This interactive guide resource is hosted on its official website and opens
+              in a dedicated tab.
             </p>
             <a
-              href={game.external_url}
+              href={guide.external_url}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium transition-colors"
             >
-              <span>Open Official Site</span>
+              <span>Open Official Resource</span>
               <ExternalLink className="w-4 h-4" />
             </a>
           </div>

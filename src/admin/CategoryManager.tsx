@@ -5,10 +5,10 @@ import {
   createAdminCategory,
   deleteAdminCategory,
 } from '../lib/api';
-import { type GameCategory } from '../games/types';
+import { type GuideCategory } from '../guides/types';
 
 export const CategoryManager: React.FC = () => {
-  const [categories, setCategories] = useState<GameCategory[]>([]);
+  const [categories, setCategories] = useState<GuideCategory[]>([]);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,8 +58,8 @@ export const CategoryManager: React.FC = () => {
       <div className="bg-white border border-slate-200 rounded-lg p-5">
         <h2 className="text-base font-semibold text-slate-900">Manage Categories</h2>
         <p className="mt-1 text-xs text-slate-600">
-          Organize games into categories. Categories assigned to active games cannot be
-          deleted until reassigned.
+          Organize study guides into categories. Categories assigned to active guides
+          cannot be deleted until reassigned.
         </p>
 
         <form onSubmit={handleAdd} className="mt-4 flex gap-2 max-w-md">

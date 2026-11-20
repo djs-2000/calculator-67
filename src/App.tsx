@@ -4,8 +4,11 @@ import { useRouter } from './lib/router';
 import { isSupabaseClientConfigured, resolveBackendMode } from './lib/supabase';
 import { clearStoredAccessSession } from './lib/api';
 import { CalculatorPage } from './pages/CalculatorPage';
-import { GamesPage } from './pages/GamesPage';
-import { GamePlayerPage } from './pages/GamePlayerPage';
+import { CoursesPage } from './pages/CoursesPage';
+import { CourseReviewPage } from './pages/CourseReviewPage';
+import { FormulasPage } from './pages/FormulasPage';
+import { GuidesPage } from './pages/GuidesPage';
+import { GuideDetailPage } from './pages/GuideDetailPage';
 import { AdminPage } from './pages/AdminPage';
 
 const PORTAL_UNLOCK_KEY = 'calculator_portal_unlocked';
@@ -18,7 +21,7 @@ export default function App() {
   const [portalUnlocked, setPortalUnlocked] = useState(
     () => sessionStorage.getItem(PORTAL_UNLOCK_KEY) === '1'
   );
-  const [, setGamesAuthorized] = useState(false);
+  const [, setGuidesAuthorized] = useState(false);
 
   useEffect(() => {
     const mode = resolveBackendMode();
@@ -43,25 +46,48 @@ export default function App() {
       });
   }, []);
 
-  const gameSlug = pathname.startsWith('/games/')
-    ? decodeURIComponent(pathname.slice('/games/'.length).split('/')[0] ?? '')
+  const isPublicMathRoute =
+    pathname === '/' ||
+    pathname === '/courses' ||
+    pathname.startsWith('/courses/') ||
+    pathname === '/formulas';
+
+  const effectivePath = portalUnlocked || isPublicMathRoute ? pathname : '/';
+
+  const guideSlug = effectivePath.startsWith('/guides/')
+    ? decodeURIComponent(effectivePath.slice('/guides/'.length).split('/')[0] ?? '')
     : '';
+
+  const courseSegments = effectivePath.startsWith('/courses/')
+    ? effectivePath
+        .slice('/courses/'.length)
+        .split('/')
+        .filter(Boolean)
+        .map(decodeURIComponent)
+    : [];
 
   const handleUnlockPortal = () => {
     sessionStorage.setItem(PORTAL_UNLOCK_KEY, '1');
     setPortalUnlocked(true);
-    navigate('/games');
+    navigate('/guides');
   };
 
   const handleLockAll = () => {
     sessionStorage.removeItem(PORTAL_UNLOCK_KEY);
     clearStoredAccessSession();
     setPortalUnlocked(false);
-    setGamesAuthorized(false);
+    setGuidesAuthorized(false);
     navigate('/');
   };
 
-  const effectivePath = portalUnlocked ? pathname : '/';
+  const isKnownRoute =
+    effectivePath === '/' ||
+    effectivePath === '/courses' ||
+    (effectivePath.startsWith('/courses/') && courseSegments.length >= 1) ||
+    effectivePath === '/formulas' ||
+    (portalUnlocked && effectivePath === '/guides') ||
+    (portalUnlocked && effectivePath.startsWith('/guides/') && Boolean(guideSlug)) ||
+    (portalUnlocked && effectivePath === '/admin');
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col">
@@ -76,23 +102,38 @@ export default function App() {
 
       <main className="flex-1">
         {effectivePath === '/' && (
-          <CalculatorPage onSecretSequence={handleUnlockPortal} />
-        )}
-
-        {portalUnlocked && effectivePath === '/games' && (
-          <GamesPage
-            backendConfigured={backendConfigured}
+          <CalculatorPage
+            onSecretSequence={handleUnlockPortal}
             onNavigate={navigate}
-            onAuthChange={setGamesAuthorized}
           />
         )}
 
-        {portalUnlocked && effectivePath.startsWith('/games/') && gameSlug && (
-          <GamePlayerPage
-            slug={gameSlug}
+        {effectivePath === '/courses' && <CoursesPage onNavigate={navigate} />}
+
+        {effectivePath.startsWith('/courses/') && courseSegments.length >= 1 && (
+          <CourseReviewPage
+            courseSlug={courseSegments[0]}
+            pageSlug={courseSegments[1]}
+            onNavigate={navigate}
+          />
+        )}
+
+        {effectivePath === '/formulas' && <FormulasPage onNavigate={navigate} />}
+
+        {portalUnlocked && effectivePath === '/guides' && (
+          <GuidesPage
             backendConfigured={backendConfigured}
             onNavigate={navigate}
-            onAuthChange={setGamesAuthorized}
+            onAuthChange={setGuidesAuthorized}
+          />
+        )}
+
+        {portalUnlocked && effectivePath.startsWith('/guides/') && guideSlug && (
+          <GuideDetailPage
+            slug={guideSlug}
+            backendConfigured={backendConfigured}
+            onNavigate={navigate}
+            onAuthChange={setGuidesAuthorized}
           />
         )}
 
@@ -100,13 +141,13 @@ export default function App() {
           <AdminPage backendConfigured={backendConfigured} />
         )}
 
-        {effectivePath !== '/' &&
-          effectivePath !== '/games' &&
-          !effectivePath.startsWith('/games/') &&
-          effectivePath !== '/admin' && (
-            <CalculatorPage onSecretSequence={handleUnlockPortal} />
-          )}
+        {!isKnownRoute && (
+          <CalculatorPage
+            onSecretSequence={handleUnlockPortal}
+            onNavigate={navigate}
+          />
+        )}
       </main>
     </div>
   );
-}
+};

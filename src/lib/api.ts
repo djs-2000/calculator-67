@@ -5,6 +5,7 @@ import {
   supabaseAnonKey,
   resolveBackendMode,
 } from './supabase';
+import { type GuideMode } from '../guides/types';
 
 const SESSION_STORAGE_KEY = 'calculator_access_session';
 const BACKEND_MODE = resolveBackendMode();
@@ -155,25 +156,25 @@ export async function checkAuthorizationStatus() {
 export async function fetchProtectedCatalog() {
   const data = await requestJson<{
     categories: Array<{ id: string; name: string; slug: string; sort_order: number }>;
-    games: Array<{
+    guides: Array<{
       id: string;
       slug: string;
       title: string;
       description: string;
       category_id: string;
       thumbnail_url: string;
-      play_mode: 'builtin' | 'embed' | 'external';
+      mode: GuideMode;
       embed_url: string | null;
       external_url: string | null;
       is_active: boolean;
       created_at: string;
     }>;
-  }>('/api/games', 'games-catalog', {
+  }>('/api/guides', 'guides-catalog', {
     method: 'GET',
     includeAccessSession: true,
     includeAdminAuth: true,
   });
-  if (!Array.isArray(data.categories) || !Array.isArray(data.games)) {
+  if (!Array.isArray(data.categories) || !Array.isArray(data.guides)) {
     throw new Error('Authorization required.');
   }
   return data;
@@ -244,40 +245,40 @@ export async function revokeAccessCode(id: string) {
   );
 }
 
-export async function fetchAdminGames() {
+export async function fetchAdminGuides() {
   return requestJson<{
-    games: Array<{
+    guides: Array<{
       id: string;
       slug: string;
       title: string;
       description: string;
       category_id: string;
       thumbnail_url: string;
-      play_mode: 'builtin' | 'embed' | 'external';
+      mode: GuideMode;
       embed_url: string | null;
       external_url: string | null;
       is_active: boolean;
       created_at: string;
     }>;
-  }>('/api/admin/games', 'admin-games', {
+  }>('/api/admin/guides', 'admin-guides', {
     method: 'GET',
     includeAdminAuth: true,
   });
 }
 
-export async function saveAdminGame(
+export async function saveAdminGuide(
   mode: 'create' | 'edit',
   payload: Record<string, unknown>
 ) {
-  return requestJson<{ game: unknown }>('/api/admin/games', 'admin-games', {
+  return requestJson<{ guide: unknown }>('/api/admin/guides', 'admin-guides', {
     method: mode === 'create' ? 'POST' : 'PUT',
     body: payload,
     includeAdminAuth: true,
   });
 }
 
-export async function deleteAdminGame(id: string) {
-  return requestJson<{ deleted: boolean }>('/api/admin/games', 'admin-games', {
+export async function deleteAdminGuide(id: string) {
+  return requestJson<{ deleted: boolean }>('/api/admin/guides', 'admin-guides', {
     method: 'DELETE',
     query: `id=${encodeURIComponent(id)}`,
     includeAdminAuth: true,

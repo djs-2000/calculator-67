@@ -10,6 +10,17 @@ function slugify(input: string): string {
     .slice(0, 48);
 }
 
+const LEGACY_CATEGORY_MAP: Record<string, { name: string; slug: string }> = {
+  arcade: { name: 'Spatial Mechanics', slug: 'spatial-mechanics' },
+  puzzle: { name: 'Number & Grid', slug: 'number-grid' },
+  strategy: { name: 'Tactics & Logic', slug: 'tactics-logic' },
+  racing: { name: 'Physics & Motion', slug: 'physics-motion' },
+  platformer: { name: 'Sequence & Timing', slug: 'sequence-timing' },
+  multiplayer: { name: 'Collaborative', slug: 'collaborative' },
+  casual: { name: 'Quick Reference', slug: 'quick-reference' },
+  other: { name: 'General', slug: 'general' },
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -26,7 +37,11 @@ Deno.serve(async (req) => {
         .select('id, name, slug, sort_order, created_at')
         .order('sort_order', { ascending: true });
       if (error) return jsonResponse({ error: 'Failed to load categories.' }, 500);
-      return jsonResponse({ categories: data ?? [] });
+      const categories = (data ?? []).map((cat) => {
+        const mapped = LEGACY_CATEGORY_MAP[cat.slug];
+        return mapped ? { ...cat, name: mapped.name, slug: mapped.slug } : cat;
+      });
+      return jsonResponse({ categories });
     }
 
     if (req.method === 'POST') {
@@ -52,7 +67,7 @@ Deno.serve(async (req) => {
       const { error } = await supabase.from('game_categories').delete().eq('id', id);
       if (error) {
         return jsonResponse(
-          { error: 'Cannot delete a category that still has assigned games.' },
+          { error: 'Cannot delete a category that still has assigned guides.' },
           400
         );
       }

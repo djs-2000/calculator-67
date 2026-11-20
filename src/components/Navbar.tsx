@@ -17,7 +17,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   actionButton,
 }) => {
   const isCalc = pathname === '/';
-  const isGames = pathname === '/games' || pathname.startsWith('/games/');
+  const isCourses = pathname === '/courses' || pathname.startsWith('/courses/');
+  const isFormulas = pathname === '/formulas';
+  const isGuides = pathname === '/guides' || pathname.startsWith('/guides/');
   const isAdmin = pathname === '/admin';
 
   const linkClass = (active: boolean) =>
@@ -42,46 +44,67 @@ export const Navbar: React.FC<NavbarProps> = ({
           Calculator
         </a>
 
-        {/* Zone 2: Primary navigation links (Games & Admin hidden until unlocked via 1234 =) */}
-        {showHiddenNav ? (
-          <nav className="flex items-center gap-6" aria-label="Primary">
-            <a
-              href="/"
-              onClick={(e) => {
-                e.preventDefault();
-                onNavigate('/');
-              }}
-              className={linkClass(isCalc)}
-            >
-              Calculator
-            </a>
-            <a
-              href="/games"
-              onClick={(e) => {
-                e.preventDefault();
-                onNavigate('/games');
-              }}
-              className={linkClass(isGames)}
-            >
-              Games
-            </a>
-            <a
-              href="/admin"
-              onClick={(e) => {
-                e.preventDefault();
-                onNavigate('/admin');
-              }}
-              className={linkClass(isAdmin)}
-            >
-              Admin
-            </a>
-          </nav>
-        ) : (
-          <div />
-        )}
+        {/* Zone 2: Primary navigation links (Guides & Admin hidden until unlocked via 1234 =) */}
+        <nav className="flex items-center gap-5 sm:gap-6 overflow-x-auto" aria-label="Primary">
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate('/');
+            }}
+            className={linkClass(isCalc)}
+          >
+            Calculator
+          </a>
+          <a
+            href="/courses"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate('/courses');
+            }}
+            className={linkClass(isCourses)}
+          >
+            Courses
+          </a>
+          <a
+            href="/formulas"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate('/formulas');
+            }}
+            className={linkClass(isFormulas)}
+          >
+            Formulas
+          </a>
+
+          {showHiddenNav && (
+            <>
+              <a
+                href="/guides"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onNavigate('/guides');
+                }}
+                className={linkClass(isGuides)}
+              >
+                Guides
+              </a>
+              <a
+                href="/admin"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onNavigate('/admin');
+                }}
+                className={linkClass(isAdmin)}
+              >
+                Admin
+              </a>
+            </>
+          )}
+        </nav>
 
         {/* Zone 3: Optional single contextual action */}
-        <div className="flex items-center shrink-0 min-w-[72px] justify-end">
+        <div className="flex items-center shrink-0 min-w-[64px] justify-end">
           {actionButton ? (
             <button
               type="button"

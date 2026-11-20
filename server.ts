@@ -280,8 +280,67 @@ async function startServer() {
     });
   });
 
-  // Protected games catalog endpoint
-  app.get('/api/games', async (req, res) => {
+  const LEGACY_CATEGORY_MAP: Record<string, { name: string; slug: string }> = {
+    arcade: { name: 'Spatial Mechanics', slug: 'spatial-mechanics' },
+    puzzle: { name: 'Number & Grid', slug: 'number-grid' },
+    strategy: { name: 'Tactics & Logic', slug: 'tactics-logic' },
+    racing: { name: 'Physics & Motion', slug: 'physics-motion' },
+    platformer: { name: 'Sequence & Timing', slug: 'sequence-timing' },
+    multiplayer: { name: 'Collaborative', slug: 'collaborative' },
+    casual: { name: 'Quick Reference', slug: 'quick-reference' },
+    other: { name: 'General', slug: 'general' },
+  };
+
+  const LEGACY_GUIDE_MAP: Record<
+    string,
+    { slug: string; title: string; description: string; thumbnail_url: string }
+  > = {
+    snake: {
+      slug: 'grid-path',
+      title: 'Grid Pathing Guide',
+      description:
+        'Step-by-step guide to Hamiltonian path planning, turning radius control, and spatial efficiency on a bounded grid.',
+      thumbnail_url: 'builtin:grid-path',
+    },
+    '2048': {
+      slug: 'powers-merge',
+      title: 'Powers of Two Merge Guide',
+      description:
+        'Walkthrough of corner-anchoring heuristics, monotonic row ordering, and exponential tile-merging on a 4x4 grid.',
+      thumbnail_url: 'builtin:powers-merge',
+    },
+    breakout: {
+      slug: 'elastic-reflection',
+      title: 'Elastic Reflection Guide',
+      description:
+        'Visual guide to rebound angle geometry, momentum deflection, and target-clearing sequencing with a live canvas.',
+      thumbnail_url: 'builtin:elastic-reflection',
+    },
+    minesweeper: {
+      slug: 'adjacency-deduction',
+      title: 'Adjacency Deduction Guide',
+      description:
+        'Logical deduction guide covering numeric neighborhood constraints and safe-cell elimination on a matrix.',
+      thumbnail_url: 'builtin:adjacency-deduction',
+    },
+    lichess: {
+      slug: 'open-chess-study',
+      title: 'Classical Board Tactics Guide',
+      description:
+        'Structured guide to opening principles, tactical forks, endgame calculation, and official external study boards.',
+      thumbnail_url: '',
+    },
+    'slow-roads': {
+      slug: 'procedural-terrain',
+      title: 'Procedural Horizon Guide',
+      description:
+        'Guide to procedural terrain generation, steering curve dynamics, and endless horizon rendering at the official showcase.',
+      thumbnail_url: '',
+    },
+  };
+
+  // Protected guides catalog endpoint
+  app.get('/api/guides', async (req, res) => {
     const check = await verifyVisitorOrAdmin(req);
     if ('unconfigured' in check && check.unconfigured) {
       sendUnconfigured(res);
@@ -292,7 +351,7 @@ async function startServer() {
       return;
     }
 
-    const [{ data: categories, error: catErr }, { data: games, error: gameErr }] =
+    const [{ data: rawCategories, error: catErr }, { data: rawItems, error: itemErr }] =
       await Promise.all([
         check.supabase
           .from('game_categories')
@@ -305,12 +364,34 @@ async function startServer() {
           .order('title', { ascending: true }),
       ]);
 
-    if (catErr || gameErr) {
-      res.status(500).json({ error: 'Unable to load games catalog.' });
+    if (catErr || itemErr) {
+      res.status(500).json({ error: 'Unable to load guides catalog.' });
       return;
     }
 
-    res.json({ categories: categories ?? [], games: games ?? [] });
+    const categories = (rawCategories ?? []).map((cat) => {
+      const mapped = LEGACY_CATEGORY_MAP[cat.slug];
+      return mapped ? { ...cat, name: mapped.name, slug: mapped.slug } : cat;
+    });
+
+    const guides = (rawItems ?? []).map((item) => {
+      const mapped = LEGACY_GUIDE_MAP[item.slug];
+      return {
+        id: item.id,
+        slug: mapped ? mapped.slug : item.slug,
+        title: mapped ? mapped.title : item.title,
+        description: mapped ? mapped.description : item.description,
+        category_id: item.category_id,
+        thumbnail_url: mapped ? mapped.thumbnail_url : item.thumbnail_url,
+        mode: item.play_mode,
+        embed_url: item.embed_url,
+        external_url: item.external_url,
+        is_active: item.is_active,
+        created_at: item.created_at,
+      };
+    });
+
+    res.json({ categories, guides });
   });
 
   // Admin role check
@@ -460,8 +541,23 @@ async function startServer() {
     res.json({ revoked: true });
   });
 
-  // Admin games CRUD
-  app.get('/api/admin/games', async (req, res) => {
+  // Admin guides CRUD
+  const mapAdminGuideRow = (row: Record<string, unknown>) => ({
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    description: row.description,
+    category_id: row.category_id,
+    thumbnail_url: row.thumbnail_url,
+    mode: row.play_mode,
+    embed_url: row.embed_url,
+    external_url: row.external_url,
+    is_active: row.is_active,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  });
+
+  app.get('/api/admin/guides', async (req, res) => {
     const admin = await requireAdmin(req);
     if (admin && 'unconfigured' in admin) {
       sendUnconfigured(res);
@@ -478,13 +574,13 @@ async function startServer() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      res.status(500).json({ error: 'Failed to load games.' });
+      res.status(500).json({ error: 'Failed to load guides.' });
       return;
     }
-    res.json({ games: data ?? [] });
+    res.json({ guides: (data ?? []).map(mapAdminGuideRow) });
   });
 
-  app.post('/api/admin/games', async (req, res) => {
+  app.post('/api/admin/guides', async (req, res) => {
     const admin = await requireAdmin(req);
     if (admin && 'unconfigured' in admin) {
       sendUnconfigured(res);
@@ -500,9 +596,10 @@ async function startServer() {
     const description =
       typeof body.description === 'string' ? body.description.trim().slice(0, 320) : '';
     const categoryId = typeof body.category_id === 'string' ? body.category_id.trim() : '';
-    const playMode =
-      body.play_mode === 'builtin' || body.play_mode === 'embed' || body.play_mode === 'external'
-        ? body.play_mode
+    const rawMode = body.mode ?? body.play_mode;
+    const mode =
+      rawMode === 'builtin' || rawMode === 'embed' || rawMode === 'external'
+        ? rawMode
         : 'external';
     const thumbnailUrl =
       typeof body.thumbnail_url === 'string' ? body.thumbnail_url.trim().slice(0, 400) : '';
@@ -520,17 +617,17 @@ async function startServer() {
       res.status(400).json({ error: 'Title, description, and category are required.' });
       return;
     }
-    if (playMode === 'embed' && (!embedUrl || !isValidHttpUrl(embedUrl))) {
+    if (mode === 'embed' && (!embedUrl || !isValidHttpUrl(embedUrl))) {
       res.status(400).json({ error: 'A valid HTTP(S) embed URL is required.' });
       return;
     }
-    if (playMode === 'external' && (!externalUrl || !isValidHttpUrl(externalUrl))) {
+    if (mode === 'external' && (!externalUrl || !isValidHttpUrl(externalUrl))) {
       res.status(400).json({ error: 'A valid HTTP(S) external URL is required.' });
       return;
     }
 
     const baseSlug = slugify(typeof body.slug === 'string' && body.slug ? body.slug : title);
-    const slug = baseSlug || `game-${Date.now()}`;
+    const slug = baseSlug || `guide-${Date.now()}`;
 
     const { data, error } = await admin.supabase
       .from('games')
@@ -540,7 +637,7 @@ async function startServer() {
         description,
         category_id: categoryId,
         thumbnail_url: thumbnailUrl,
-        play_mode: playMode,
+        play_mode: mode,
         embed_url: embedUrl,
         external_url: externalUrl,
         is_active: isActive,
@@ -548,14 +645,14 @@ async function startServer() {
       .select()
       .single();
 
-    if (error) {
-      res.status(400).json({ error: 'Unable to create game.' });
+    if (error || !data) {
+      res.status(400).json({ error: 'Unable to create guide.' });
       return;
     }
-    res.status(201).json({ game: data });
+    res.status(201).json({ guide: mapAdminGuideRow(data) });
   });
 
-  app.put('/api/admin/games', async (req, res) => {
+  app.put('/api/admin/guides', async (req, res) => {
     const admin = await requireAdmin(req);
     if (admin && 'unconfigured' in admin) {
       sendUnconfigured(res);
@@ -572,9 +669,10 @@ async function startServer() {
     const description =
       typeof body.description === 'string' ? body.description.trim().slice(0, 320) : '';
     const categoryId = typeof body.category_id === 'string' ? body.category_id.trim() : '';
-    const playMode =
-      body.play_mode === 'builtin' || body.play_mode === 'embed' || body.play_mode === 'external'
-        ? body.play_mode
+    const rawMode = body.mode ?? body.play_mode;
+    const mode =
+      rawMode === 'builtin' || rawMode === 'embed' || rawMode === 'external'
+        ? rawMode
         : 'external';
     const thumbnailUrl =
       typeof body.thumbnail_url === 'string' ? body.thumbnail_url.trim().slice(0, 400) : '';
@@ -589,14 +687,14 @@ async function startServer() {
     const isActive = typeof body.is_active === 'boolean' ? body.is_active : true;
 
     if (!id || !title || !description || !categoryId) {
-      res.status(400).json({ error: 'Missing required game fields.' });
+      res.status(400).json({ error: 'Missing required guide fields.' });
       return;
     }
-    if (playMode === 'embed' && (!embedUrl || !isValidHttpUrl(embedUrl))) {
+    if (mode === 'embed' && (!embedUrl || !isValidHttpUrl(embedUrl))) {
       res.status(400).json({ error: 'A valid HTTP(S) embed URL is required.' });
       return;
     }
-    if (playMode === 'external' && (!externalUrl || !isValidHttpUrl(externalUrl))) {
+    if (mode === 'external' && (!externalUrl || !isValidHttpUrl(externalUrl))) {
       res.status(400).json({ error: 'A valid HTTP(S) external URL is required.' });
       return;
     }
@@ -608,7 +706,7 @@ async function startServer() {
         description,
         category_id: categoryId,
         thumbnail_url: thumbnailUrl,
-        play_mode: playMode,
+        play_mode: mode,
         embed_url: embedUrl,
         external_url: externalUrl,
         is_active: isActive,
@@ -618,14 +716,14 @@ async function startServer() {
       .select()
       .single();
 
-    if (error) {
-      res.status(400).json({ error: 'Unable to update game.' });
+    if (error || !data) {
+      res.status(400).json({ error: 'Unable to update guide.' });
       return;
     }
-    res.json({ game: data });
+    res.json({ guide: mapAdminGuideRow(data) });
   });
 
-  app.delete('/api/admin/games', async (req, res) => {
+  app.delete('/api/admin/guides', async (req, res) => {
     const admin = await requireAdmin(req);
     if (admin && 'unconfigured' in admin) {
       sendUnconfigured(res);
@@ -638,13 +736,13 @@ async function startServer() {
 
     const id = typeof req.query.id === 'string' ? req.query.id.trim() : '';
     if (!id) {
-      res.status(400).json({ error: 'Missing game id.' });
+      res.status(400).json({ error: 'Missing guide id.' });
       return;
     }
 
     const { error } = await admin.supabase.from('games').delete().eq('id', id);
     if (error) {
-      res.status(400).json({ error: 'Unable to delete game.' });
+      res.status(400).json({ error: 'Unable to delete guide.' });
       return;
     }
     res.json({ deleted: true });
@@ -671,7 +769,11 @@ async function startServer() {
       res.status(500).json({ error: 'Failed to load categories.' });
       return;
     }
-    res.json({ categories: data ?? [] });
+    const categories = (data ?? []).map((cat) => {
+      const mapped = LEGACY_CATEGORY_MAP[cat.slug];
+      return mapped ? { ...cat, name: mapped.name, slug: mapped.slug } : cat;
+    });
+    res.json({ categories });
   });
 
   app.post('/api/admin/categories', async (req, res) => {
@@ -730,7 +832,7 @@ async function startServer() {
     const { error } = await admin.supabase.from('game_categories').delete().eq('id', id);
     if (error) {
       res.status(400).json({
-        error: 'Cannot delete a category that still has assigned games.',
+        error: 'Cannot delete a category that still has assigned guides.',
       });
       return;
     }

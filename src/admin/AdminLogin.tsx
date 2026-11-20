@@ -71,7 +71,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
 
       <h1 className="text-xl font-semibold text-slate-900">Administrator Sign In</h1>
       <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
-        Sign in with a verified administrator account to manage access codes and games.
+        Sign in with a verified administrator account to manage access codes and guides.
       </p>
 
       {!configured && (

@@ -141,47 +141,47 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres, service_role
 GRANT SELECT ON public.admin_users TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.game_categories, public.games, public.access_codes, public.app_settings TO authenticated;
 
--- Seed required game categories
+-- Seed guide categories
 INSERT INTO public.game_categories (name, slug, sort_order) VALUES
-  ('Arcade', 'arcade', 1),
-  ('Puzzle', 'puzzle', 2),
-  ('Strategy', 'strategy', 3),
-  ('Racing', 'racing', 4),
-  ('Platformer', 'platformer', 5),
-  ('Multiplayer', 'multiplayer', 6),
-  ('Casual', 'casual', 7),
-  ('Other', 'other', 8)
+  ('Spatial Mechanics', 'spatial-mechanics', 1),
+  ('Number & Grid', 'number-grid', 2),
+  ('Tactics & Logic', 'tactics-logic', 3),
+  ('Physics & Motion', 'physics-motion', 4),
+  ('Sequence & Timing', 'sequence-timing', 5),
+  ('Collaborative', 'collaborative', 6),
+  ('Quick Reference', 'quick-reference', 7),
+  ('General', 'general', 8)
 ON CONFLICT (slug) DO NOTHING;
 
--- Seed initial games catalog (built-in HTML5 games + legal official external links)
+-- Seed initial interactive guides catalog
 INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
-SELECT 'snake', 'Classic Snake', 'Guide the snake across the grid, collect targets, and avoid colliding with walls or yourself.', id, 'builtin:snake', 'builtin', NULL, NULL, true
-FROM public.game_categories WHERE slug = 'arcade'
-ON CONFLICT (slug) DO NOTHING;
-
-INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
-SELECT '2048', '2048 Tiles', 'Slide numbered tiles on a 4x4 grid to combine matching powers of two and reach 2048.', id, 'builtin:2048', 'builtin', NULL, NULL, true
-FROM public.game_categories WHERE slug = 'puzzle'
+SELECT 'grid-path', 'Grid Pathing Guide', 'Step-by-step guide to Hamiltonian path planning, turning radius control, and spatial efficiency on a bounded grid.', id, 'builtin:grid-path', 'builtin', NULL, NULL, true
+FROM public.game_categories WHERE slug = 'spatial-mechanics'
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
-SELECT 'breakout', 'Block Breaker', 'Deflect the ball with your paddle to clear every row of blocks across the board.', id, 'builtin:breakout', 'builtin', NULL, NULL, true
-FROM public.game_categories WHERE slug = 'arcade'
+SELECT 'powers-merge', 'Powers of Two Merge Guide', 'Walkthrough of corner-anchoring heuristics, monotonic row ordering, and exponential tile-merging on a 4x4 grid.', id, 'builtin:powers-merge', 'builtin', NULL, NULL, true
+FROM public.game_categories WHERE slug = 'number-grid'
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
-SELECT 'minesweeper', 'Minesweeper', 'Use numeric adjacency clues to flag hidden mines and uncover every safe square.', id, 'builtin:minesweeper', 'builtin', NULL, NULL, true
-FROM public.game_categories WHERE slug = 'strategy'
+SELECT 'elastic-reflection', 'Elastic Reflection Guide', 'Visual guide to rebound angle geometry, momentum deflection, and target-clearing sequencing with a live canvas.', id, 'builtin:elastic-reflection', 'builtin', NULL, NULL, true
+FROM public.game_categories WHERE slug = 'spatial-mechanics'
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
-SELECT 'lichess', 'Lichess Chess', 'Free, open-source online chess platform with puzzles, computer opponents, and live matches.', id, '', 'external', NULL, 'https://lichess.org', true
-FROM public.game_categories WHERE slug = 'strategy'
+SELECT 'adjacency-deduction', 'Adjacency Deduction Guide', 'Logical deduction guide covering numeric neighborhood constraints and safe-cell elimination on a matrix.', id, 'builtin:adjacency-deduction', 'builtin', NULL, NULL, true
+FROM public.game_categories WHERE slug = 'tactics-logic'
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
-SELECT 'slow-roads', 'Slow Roads', 'Endless procedural driving game set across scenic landscapes directly in the browser.', id, '', 'external', NULL, 'https://slowroads.io', true
-FROM public.game_categories WHERE slug = 'racing'
+SELECT 'open-chess-study', 'Classical Board Tactics Guide', 'Structured guide to opening principles, tactical forks, endgame calculation, and official external study boards.', id, '', 'external', NULL, 'https://lichess.org', true
+FROM public.game_categories WHERE slug = 'tactics-logic'
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
+SELECT 'procedural-terrain', 'Procedural Horizon Guide', 'Guide to procedural terrain generation, steering curve dynamics, and endless horizon rendering at the official showcase.', id, '', 'external', NULL, 'https://slowroads.io', true
+FROM public.game_categories WHERE slug = 'physics-motion'
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.app_settings (key, value) VALUES

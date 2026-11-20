@@ -5,7 +5,7 @@ import {
   createOrRotateAccessCode,
   revokeAccessCode,
 } from '../lib/api';
-import { type AccessCodeRecord } from '../games/types';
+import { type AccessCodeRecord } from '../guides/types';
 
 export const AccessCodeManager: React.FC = () => {
   const [codes, setCodes] = useState<AccessCodeRecord[]>([]);

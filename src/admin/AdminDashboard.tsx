@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LogOut } from 'lucide-react';
 import { AccessCodeManager } from './AccessCodeManager';
-import { GamesManager } from './GamesManager';
+import { GuidesManager } from './GuidesManager';
 import { CategoryManager } from './CategoryManager';
 
 interface AdminDashboardProps {
@@ -9,7 +9,7 @@ interface AdminDashboardProps {
   onSignOut: () => void;
 }
 
-type AdminTab = 'codes' | 'games' | 'categories';
+type AdminTab = 'codes' | 'guides' | 'categories';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   adminEmail,
@@ -45,7 +45,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {(
           [
             { id: 'codes', label: 'Access Codes' },
-            { id: 'games', label: 'Games' },
+            { id: 'guides', label: 'Guides' },
             { id: 'categories', label: 'Categories' },
           ] as const
         ).map((item) => (
@@ -65,7 +65,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {tab === 'codes' && <AccessCodeManager />}
-      {tab === 'games' && <GamesManager />}
+      {tab === 'guides' && <GuidesManager />}
       {tab === 'categories' && <CategoryManager />}
     </div>
   );

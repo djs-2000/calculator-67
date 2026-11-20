@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { Lock, Loader2, AlertCircle } from 'lucide-react';
 import { verifyAccessCode } from '../lib/api';
 
-interface GamesAccessGateProps {
+interface GuidesAccessGateProps {
   onAuthorized: () => void;
   backendConfigured: boolean;
 }
 
-export const GamesAccessGate: React.FC<GamesAccessGateProps> = ({
+export const GuidesAccessGate: React.FC<GuidesAccessGateProps> = ({
   onAuthorized,
   backendConfigured,
 }) => {
@@ -44,9 +44,9 @@ export const GamesAccessGate: React.FC<GamesAccessGateProps> = ({
         <Lock className="w-5 h-5" />
       </div>
 
-      <h1 className="text-xl font-semibold text-slate-900">Protected Access</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Protected Study Guides</h1>
       <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
-        Enter a valid access code or sign in as an administrator to view this section.
+        Enter a valid access code or sign in as an administrator to open the guides library.
       </p>
 
       {!backendConfigured && (
