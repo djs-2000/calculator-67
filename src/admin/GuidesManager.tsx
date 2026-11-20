@@ -217,7 +217,7 @@ export const GuidesManager: React.FC = () => {
               >
                 <option value="external">Official External Link</option>
                 <option value="embed">Embedded Reference (iframe)</option>
-                <option value="builtin">Built-in Interactive Guide</option>
+                <option value="builtin">Built-in Interactive Module</option>
               </select>
             </div>
 

@@ -57,6 +57,9 @@ export const DeductionGrid: React.FC = () => {
   const [status, setStatus] = useState<'ACTIVE' | 'TRIGGERED' | 'SOLVED'>('ACTIVE');
 
   const markCount = matrix.flat().filter((c) => c.isMarked).length;
+  const revealedSafe = matrix
+    .flat()
+    .filter((c) => c.isRevealed && !c.isHazard).length;
 
   const revealCell = (r: number, c: number) => {
     if (status !== 'ACTIVE') return;
@@ -134,18 +137,25 @@ export const DeductionGrid: React.FC = () => {
     setMarkMode(false);
   };
 
-  const numColor = (n: number) => {
-    if (n === 1) return 'text-blue-700';
-    if (n === 2) return 'text-emerald-700';
-    if (n === 3) return 'text-red-600';
-    return 'text-slate-900';
-  };
-
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="w-full max-w-[360px] flex items-center justify-between gap-2">
-        <div className="text-sm font-mono-num text-slate-700">
-          Remaining: <strong className="text-slate-900">{HAZARDS - markCount}</strong>
+      <div className="w-full max-w-[360px] border-b border-slate-200 pb-2.5 text-center sm:text-left">
+        <div className="text-xs font-medium text-slate-500">
+          Critical Thinking Exercise #4
+        </div>
+        <div className="text-sm font-semibold text-slate-900">
+          Adjacency Logic Matrix Module
+        </div>
+      </div>
+
+      <div className="w-full max-w-[360px] flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-3 text-xs sm:text-sm font-mono-num text-slate-700">
+          <span>
+            Performance Metric: <strong className="text-slate-900">{revealedSafe}</strong>
+          </span>
+          <span className="text-slate-500">
+            Remaining: <strong className="text-slate-700">{HAZARDS - markCount}</strong>
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -154,7 +164,7 @@ export const DeductionGrid: React.FC = () => {
             onClick={() => setMarkMode((f) => !f)}
             className={`px-3 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1.5 border transition-colors ${
               markMode
-                ? 'bg-red-600 text-white border-red-600'
+                ? 'bg-slate-900 text-white border-slate-900'
                 : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'
             }`}
           >
@@ -171,7 +181,7 @@ export const DeductionGrid: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-9 gap-1 p-2 bg-slate-200 border border-slate-300 rounded-lg">
+      <div className="grid grid-cols-9 gap-1 p-2 bg-slate-100 border border-slate-300 rounded-md">
         {matrix.map((row, r) =>
           row.map((cell, c) => (
             <button
@@ -179,13 +189,13 @@ export const DeductionGrid: React.FC = () => {
               type="button"
               onClick={() => revealCell(r, c)}
               onContextMenu={(e) => toggleMarkRightClick(e, r, c)}
-              className={`w-8 h-8 sm:w-9 sm:h-9 rounded text-sm font-mono-num font-bold flex items-center justify-center border transition-colors ${
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-sm text-sm font-mono-num font-bold flex items-center justify-center border transition-colors ${
                 cell.isRevealed
                   ? cell.isHazard
-                    ? 'bg-red-100 border-red-300 text-red-700'
-                    : 'bg-slate-50 border-slate-200'
-                  : 'bg-white hover:bg-slate-100 border-slate-300 shadow-2xs'
-              } ${cell.isRevealed && !cell.isHazard ? numColor(cell.adjacent) : ''}`}
+                    ? 'bg-slate-900 border-slate-900 text-white'
+                    : 'bg-slate-50 border-slate-200 text-slate-900'
+                  : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700'
+              }`}
             >
               {cell.isRevealed
                 ? cell.isHazard
@@ -204,8 +214,8 @@ export const DeductionGrid: React.FC = () => {
       {status !== 'ACTIVE' && (
         <div className="text-sm font-medium text-slate-900">
           {status === 'SOLVED'
-            ? 'Matrix solved! All safe cells uncovered.'
-            : 'Hidden cell triggered — reset to practice another deduction layout.'}
+            ? 'Exercise complete: all safe cells uncovered.'
+            : 'Hidden cell triggered — reset exercise to practice another deduction layout.'}
         </div>
       )}
     </div>

@@ -9,19 +9,19 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-type SimState = 'READY' | 'RUNNING' | 'PAUSED' | 'COMPLETE';
+type ModuleState = 'READY' | 'ACTIVE' | 'PAUSED' | 'COMPLETE';
 const GRID_SIZE = 18;
 
 export const GridPathCanvas: React.FC = () => {
-  const [simState, setSimState] = useState<SimState>('READY');
+  const [moduleState, setModuleState] = useState<ModuleState>('READY');
   const [trail, setTrail] = useState<Array<[number, number]>>([
     [9, 9],
     [8, 9],
     [7, 9],
   ]);
   const [target, setTarget] = useState<[number, number]>([13, 9]);
-  const [points, setPoints] = useState(0);
-  const [peakPoints, setPeakPoints] = useState(() =>
+  const [metric, setMetric] = useState(0);
+  const [bestMetric, setBestMetric] = useState(() =>
     Number(localStorage.getItem('calc_grid_path_peak') || '0')
   );
   const dirRef = useRef<[number, number]>([1, 0]);
@@ -34,7 +34,7 @@ export const GridPathCanvas: React.FC = () => {
     }
   }, []);
 
-  const startDemo = useCallback(() => {
+  const startActivity = useCallback(() => {
     const initial: Array<[number, number]> = [
       [9, 9],
       [8, 9],
@@ -43,8 +43,8 @@ export const GridPathCanvas: React.FC = () => {
     setTrail(initial);
     setTarget([13, 9]);
     dirRef.current = [1, 0];
-    setPoints(0);
-    setSimState('RUNNING');
+    setMetric(0);
+    setModuleState('ACTIVE');
   }, []);
 
   const setDirection = useCallback((next: [number, number]) => {
@@ -75,7 +75,7 @@ export const GridPathCanvas: React.FC = () => {
   }, [setDirection]);
 
   useEffect(() => {
-    if (simState !== 'RUNNING') return;
+    if (moduleState !== 'ACTIVE') return;
     const timer = setInterval(() => {
       setTrail((prev) => {
         const [hx, hy] = prev[0];
@@ -90,19 +90,19 @@ export const GridPathCanvas: React.FC = () => {
           ny >= GRID_SIZE ||
           prev.some(([x, y]) => x === nx && y === ny)
         ) {
-          setSimState('COMPLETE');
+          setModuleState('COMPLETE');
           return prev;
         }
 
         const nextBody: Array<[number, number]> = [[nx, ny], ...prev];
         if (nx === target[0] && ny === target[1]) {
-          setPoints((s) => {
-            const nextPoints = s + 10;
-            if (nextPoints > peakPoints) {
-              setPeakPoints(nextPoints);
-              localStorage.setItem('calc_grid_path_peak', String(nextPoints));
+          setMetric((s) => {
+            const nextMetric = s + 10;
+            if (nextMetric > bestMetric) {
+              setBestMetric(nextMetric);
+              localStorage.setItem('calc_grid_path_peak', String(nextMetric));
             }
-            return nextPoints;
+            return nextMetric;
           });
           setTarget(spawnTarget(nextBody));
         } else {
@@ -113,25 +113,34 @@ export const GridPathCanvas: React.FC = () => {
     }, 125);
 
     return () => clearInterval(timer);
-  }, [simState, target, spawnTarget, peakPoints]);
+  }, [moduleState, target, spawnTarget, bestMetric]);
 
   return (
     <div className="flex flex-col items-center gap-4">
+      <div className="w-full max-w-[380px] border-b border-slate-200 pb-2.5 text-center sm:text-left">
+        <div className="text-xs font-medium text-slate-500">
+          Critical Thinking Exercise #1
+        </div>
+        <div className="text-sm font-semibold text-slate-900">
+          Coordinate Grid Pathing Module
+        </div>
+      </div>
+
       <div className="w-full max-w-[380px] flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm font-mono-num text-slate-700">
+        <div className="flex items-center gap-4 text-xs sm:text-sm font-mono-num text-slate-700">
           <span>
-            Points: <strong className="text-slate-900">{points}</strong>
+            Performance Metric: <strong className="text-slate-900">{metric}</strong>
           </span>
           <span className="text-slate-500">
-            Peak: <strong className="text-slate-700">{peakPoints}</strong>
+            Best: <strong className="text-slate-700">{bestMetric}</strong>
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          {simState === 'RUNNING' ? (
+          {moduleState === 'ACTIVE' ? (
             <button
               type="button"
-              onClick={() => setSimState('PAUSED')}
+              onClick={() => setModuleState('PAUSED')}
               className="px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-medium inline-flex items-center gap-1.5 border border-slate-200"
             >
               <Pause className="w-3.5 h-3.5" /> Pause
@@ -140,18 +149,18 @@ export const GridPathCanvas: React.FC = () => {
             <button
               type="button"
               onClick={() =>
-                simState === 'PAUSED' ? setSimState('RUNNING') : startDemo()
+                moduleState === 'PAUSED' ? setModuleState('ACTIVE') : startActivity()
               }
               className="px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium inline-flex items-center gap-1.5"
             >
               <Play className="w-3.5 h-3.5" />
-              {simState === 'PAUSED' ? 'Resume' : 'Start Demo'}
+              {moduleState === 'PAUSED' ? 'Resume' : 'Begin Activity'}
             </button>
           )}
           <button
             type="button"
-            onClick={startDemo}
-            aria-label="Restart Grid Path Demo"
+            onClick={startActivity}
+            aria-label="Reset Exercise"
             className="p-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -160,7 +169,7 @@ export const GridPathCanvas: React.FC = () => {
       </div>
 
       <div
-        className="relative grid bg-slate-50 border border-slate-300 rounded-lg p-1.5"
+        className="relative grid bg-slate-100 border border-slate-300 rounded-md p-1.5"
         style={{
           gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
           width: 'min(100%, 380px)',
@@ -177,54 +186,55 @@ export const GridPathCanvas: React.FC = () => {
           return (
             <div
               key={idx}
-              className={`rounded-[2px] m-[0.5px] ${
+              className={`rounded-[1px] m-[0.5px] ${
                 isHead
-                  ? 'bg-emerald-700'
+                  ? 'bg-slate-900'
                   : isBody
-                    ? 'bg-emerald-600/80'
+                    ? 'bg-slate-600'
                     : isTarget
-                      ? 'bg-red-600'
+                      ? 'bg-slate-800 ring-1 ring-inset ring-white'
                       : 'bg-white'
               }`}
             />
           );
         })}
 
-        {simState === 'READY' && (
-          <div className="absolute inset-0 bg-white/90 rounded-lg flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-lg font-semibold text-slate-900">Grid Pathing Guide</h3>
+        {moduleState === 'READY' && (
+          <div className="absolute inset-0 bg-white/95 rounded-md flex flex-col items-center justify-center p-6 text-center">
+            <h3 className="text-base font-semibold text-slate-900">
+              Interactive Module Instructions
+            </h3>
             <p className="mt-1 text-xs text-slate-600 max-w-xs">
-              Practice turns and loop-avoidance pathing using Arrow keys, WASD, or the
-              directional controls below.
+              Steer across the grid using Arrow keys, WASD, or the directional controls
+              below while avoiding self-intersections.
             </p>
             <button
               type="button"
-              onClick={startDemo}
+              onClick={startActivity}
               className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
             >
-              Start Walkthrough
+              Begin Activity
             </button>
           </div>
         )}
 
-        {simState === 'COMPLETE' && (
-          <div className="absolute inset-0 bg-white/90 rounded-lg flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-lg font-semibold text-slate-900">Run Complete</h3>
+        {moduleState === 'COMPLETE' && (
+          <div className="absolute inset-0 bg-white/95 rounded-md flex flex-col items-center justify-center p-6 text-center">
+            <h3 className="text-base font-semibold text-slate-900">Exercise Complete</h3>
             <p className="mt-1 text-sm font-mono-num text-slate-600">
-              Final Points: {points}
+              Performance Metric: {metric}
             </p>
             <button
               type="button"
-              onClick={startDemo}
+              onClick={startActivity}
               className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
             >
-              Restart Demo
+              Reset Exercise
             </button>
           </div>
         )}
       </div>
 
-      {/* Directional Controls */}
       <div className="grid grid-cols-3 gap-1.5 w-36">
         <div />
         <button

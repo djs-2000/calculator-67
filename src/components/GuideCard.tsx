@@ -18,18 +18,18 @@ export const GuideCard: React.FC<GuideCardProps> = ({
   const thumbSrc = resolveThumbnailUrl(guide.thumbnail_url, guide.slug);
 
   return (
-    <article className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs flex flex-col transition-shadow duration-150 hover:shadow-sm">
-      <div className="aspect-[4/3] bg-slate-100 border-b border-slate-200 relative overflow-hidden">
+    <article className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs flex flex-col">
+      <div className="aspect-[4/3] bg-slate-50 border-b border-slate-200 relative overflow-hidden">
         {thumbSrc && !imgFailed ? (
           <img
             src={thumbSrc}
             alt={guide.title}
             referrerPolicy="no-referrer"
             onError={() => setImgFailed(true)}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover grayscale contrast-95"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400 px-4 text-center">
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-slate-50 text-slate-400 px-4 text-center">
             <Compass className="w-8 h-8 stroke-[1.5]" />
             <span className="text-xs font-medium text-slate-500 truncate max-w-full">
               {guide.title}
@@ -46,8 +46,8 @@ export const GuideCard: React.FC<GuideCardProps> = ({
             {guide.mode === 'external'
               ? 'External Reference'
               : guide.mode === 'embed'
-                ? 'Embedded Guide'
-                : 'Interactive Guide'}
+                ? 'Embedded Module'
+                : 'Interactive Module'}
           </span>
         </div>
 
@@ -67,13 +67,13 @@ export const GuideCard: React.FC<GuideCardProps> = ({
           >
             {guide.mode === 'external' ? (
               <>
-                <span>Open Guide</span>
+                <span>Begin Activity</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </>
             ) : (
               <>
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>Open Guide</span>
+                <span>Begin Activity</span>
               </>
             )}
           </button>

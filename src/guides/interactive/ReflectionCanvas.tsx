@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RotateCcw, Play } from 'lucide-react';
 
-type SimState = 'READY' | 'RUNNING' | 'COMPLETE' | 'CLEARED';
+type ModuleState = 'READY' | 'ACTIVE' | 'COMPLETE' | 'CLEARED';
 
 export const ReflectionCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [simState, setSimState] = useState<SimState>('READY');
-  const [points, setPoints] = useState(0);
+  const [moduleState, setModuleState] = useState<ModuleState>('READY');
+  const [metric, setMetric] = useState(0);
   const [runId, setRunId] = useState(0);
 
   useEffect(() => {
-    if (simState !== 'RUNNING') return;
+    if (moduleState !== 'ACTIVE') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -25,7 +25,7 @@ export const ReflectionCanvas: React.FC = () => {
     let orbY = H - 30;
     let dx = 3;
     let dy = -3;
-    let currentPoints = 0;
+    let currentMetric = 0;
     let leftPressed = false;
     let rightPressed = false;
     let rafId = 0;
@@ -38,7 +38,7 @@ export const ReflectionCanvas: React.FC = () => {
     const pad = 6;
     const offsetLeft = 22;
     const offsetTop = 26;
-    const rowColors = ['#DC2626', '#D97706', '#2563EB', '#059669'];
+    const rowColors = ['#1E293B', '#334155', '#475569', '#64748B'];
 
     const targets: Array<Array<{ x: number; y: number; active: boolean }>> = [];
     for (let r = 0; r < rows; r++) {
@@ -72,7 +72,7 @@ export const ReflectionCanvas: React.FC = () => {
 
     const frame = () => {
       if (stopped) return;
-      ctx.fillStyle = '#F8FAFC';
+      ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, W, H);
 
       let remaining = 0;
@@ -87,15 +87,15 @@ export const ReflectionCanvas: React.FC = () => {
           if (orbX > b.x && orbX < b.x + targetW && orbY > b.y && orbY < b.y + targetH) {
             dy = -dy;
             b.active = false;
-            currentPoints += 10;
-            setPoints(currentPoints);
+            currentMetric += 10;
+            setMetric(currentMetric);
           }
         }
       }
 
       if (remaining === 0) {
         stopped = true;
-        setSimState('CLEARED');
+        setModuleState('CLEARED');
         return;
       }
 
@@ -118,7 +118,7 @@ export const ReflectionCanvas: React.FC = () => {
           dy = -Math.abs(dy);
         } else if (orbY + dy > H - 6) {
           stopped = true;
-          setSimState('COMPLETE');
+          setModuleState('COMPLETE');
           return;
         }
       }
@@ -139,30 +139,39 @@ export const ReflectionCanvas: React.FC = () => {
       window.removeEventListener('keyup', onKeyUp);
       canvas.removeEventListener('pointermove', onPointerMove);
     };
-  }, [simState, runId]);
+  }, [moduleState, runId]);
 
   const start = () => {
-    setPoints(0);
-    setSimState('RUNNING');
+    setMetric(0);
+    setModuleState('ACTIVE');
     setRunId((n) => n + 1);
   };
 
   return (
     <div className="flex flex-col items-center gap-3">
+      <div className="w-full max-w-[400px] border-b border-slate-200 pb-2.5 text-center sm:text-left">
+        <div className="text-xs font-medium text-slate-500">
+          Critical Thinking Exercise #3
+        </div>
+        <div className="text-sm font-semibold text-slate-900">
+          Elastic Reflection Geometry Module
+        </div>
+      </div>
+
       <div className="w-full max-w-[400px] flex items-center justify-between">
-        <div className="text-sm font-mono-num text-slate-700">
-          Points: <strong className="text-slate-900">{points}</strong>
+        <div className="text-xs sm:text-sm font-mono-num text-slate-700">
+          Performance Metric: <strong className="text-slate-900">{metric}</strong>
         </div>
         <button
           type="button"
           onClick={start}
           className="px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-medium inline-flex items-center gap-1.5 border border-slate-200"
         >
-          <RotateCcw className="w-3.5 h-3.5" /> Restart
+          <RotateCcw className="w-3.5 h-3.5" /> Reset Exercise
         </button>
       </div>
 
-      <div className="relative rounded-lg overflow-hidden border border-slate-300 bg-slate-50">
+      <div className="relative rounded-md overflow-hidden border border-slate-300 bg-white">
         <canvas
           ref={canvasRef}
           width={400}
@@ -170,10 +179,10 @@ export const ReflectionCanvas: React.FC = () => {
           className="block max-w-full cursor-pointer touch-none"
         />
 
-        {simState === 'READY' && (
-          <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-lg font-semibold text-slate-900">
-              Elastic Reflection Guide
+        {moduleState === 'READY' && (
+          <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-6 text-center">
+            <h3 className="text-base font-semibold text-slate-900">
+              Interactive Module Instructions
             </h3>
             <p className="mt-1 text-xs text-slate-600 max-w-xs">
               Observe reflection angles by moving the reflector bar with your pointer,
@@ -184,23 +193,25 @@ export const ReflectionCanvas: React.FC = () => {
               onClick={start}
               className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium inline-flex items-center gap-1.5"
             >
-              <Play className="w-3.5 h-3.5" /> Start Walkthrough
+              <Play className="w-3.5 h-3.5" /> Begin Activity
             </button>
           </div>
         )}
 
-        {(simState === 'COMPLETE' || simState === 'CLEARED') && (
-          <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center p-6 text-center">
-            <h3 className="text-lg font-semibold text-slate-900">
-              {simState === 'CLEARED' ? 'All Targets Cleared' : 'Trial Complete'}
+        {(moduleState === 'COMPLETE' || moduleState === 'CLEARED') && (
+          <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-6 text-center">
+            <h3 className="text-base font-semibold text-slate-900">
+              {moduleState === 'CLEARED' ? 'All Targets Cleared' : 'Exercise Complete'}
             </h3>
-            <p className="mt-1 text-sm font-mono-num text-slate-600">Points: {points}</p>
+            <p className="mt-1 text-sm font-mono-num text-slate-600">
+              Performance Metric: {metric}
+            </p>
             <button
               type="button"
               onClick={start}
               className="mt-4 px-4 py-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium"
             >
-              Restart Demo
+              Reset Exercise
             </button>
           </div>
         )}

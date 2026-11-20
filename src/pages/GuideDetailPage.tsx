@@ -59,7 +59,7 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
     return (
       <div className="min-h-[50vh] flex items-center justify-center text-sm text-slate-600 gap-2">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Loading...</span>
+        <span>Loading module...</span>
       </div>
     );
   }
@@ -106,7 +106,7 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
       default:
         return (
           <p className="text-sm text-slate-600 py-8 text-center">
-            Interactive demonstration is not registered for this guide slug.
+            Interactive module is not registered for this slug.
           </p>
         );
     }
@@ -130,8 +130,8 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
               {guide.mode === 'external'
                 ? 'Official External Reference'
                 : guide.mode === 'embed'
-                  ? 'Embedded Reference'
-                  : 'Interactive Walkthrough'}
+                  ? 'Embedded Module'
+                  : 'Interactive Module'}
             </span>
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
@@ -146,7 +146,7 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
 
         {guide.mode === 'embed' && guide.embed_url && (
           <div className="space-y-3">
-            <div className="aspect-video w-full rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+            <div className="aspect-video w-full rounded-lg overflow-hidden border border-slate-200 bg-white">
               <iframe
                 src={guide.embed_url}
                 title={guide.title}
@@ -165,8 +165,8 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
         {guide.mode === 'external' && guide.external_url && (
           <div className="py-10 text-center space-y-4">
             <p className="text-sm text-slate-600 max-w-md mx-auto">
-              This interactive guide resource is hosted on its official website and opens
-              in a dedicated tab.
+              This interactive guide module is hosted on its official website and opens in
+              a dedicated tab.
             </p>
             <a
               href={guide.external_url}
@@ -174,7 +174,7 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium transition-colors"
             >
-              <span>Open Official Resource</span>
+              <span>Begin Activity</span>
               <ExternalLink className="w-4 h-4" />
             </a>
           </div>
