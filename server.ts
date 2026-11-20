@@ -391,6 +391,46 @@ async function startServer() {
       };
     });
 
+    const catBySlug = new Map(categories.map((c) => [c.slug, c.id]));
+    const fallbackCatId = categories[0]?.id ?? 'general';
+    const existingSlugs = new Set(guides.map((g) => g.slug));
+
+    const defaultEmbeds = [
+      {
+        slug: 'polytrack-kinematics',
+        title: 'PolyTrack — Spline Kinematics & Friction Lab',
+        description:
+          'Interactive low-poly kinematic simulation analyzing centripetal acceleration, banked-curve friction limits, spline curvature optimization, and angular momentum across bounded tracks.',
+        category_id: catBySlug.get('physics-motion') ?? fallbackCatId,
+        embed_url: 'https://joe-the-chicken.github.io/polytrack/',
+      },
+      {
+        slug: 'retrobowl-kinematics',
+        title: 'Retro Bowl — Parabolic Trajectory & Expected Value Lab',
+        description:
+          'Applied probability and projectile mechanics simulation modeling parabolic release angles, lateral intercept vectors, expected-value decision trees, and discrete interval budgeting.',
+        category_id: catBySlug.get('tactics-logic') ?? fallbackCatId,
+        embed_url: 'https://game316009.konggames.com/gamez/0031/6009/live/index.html',
+      },
+    ];
+
+    for (const emb of defaultEmbeds) {
+      if (existingSlugs.has(emb.slug)) continue;
+      guides.push({
+        id: `default-${emb.slug}`,
+        slug: emb.slug,
+        title: emb.title,
+        description: emb.description,
+        category_id: emb.category_id,
+        thumbnail_url: '',
+        mode: 'embed',
+        embed_url: emb.embed_url,
+        external_url: null,
+        is_active: true,
+        created_at: new Date(0).toISOString(),
+      });
+    }
+
     res.json({ categories, guides });
   });
 

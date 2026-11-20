@@ -5,6 +5,7 @@ import {
   clearStoredAccessSession,
 } from '../lib/api';
 import { type GuideCategory, type GuideItem } from '../guides/types';
+import { mergeDefaultEmbeddedModules } from '../guides/defaultEmbeddedModules';
 import { GuidesAccessGate } from '../guides/GuidesAccessGate';
 import { GuidesLibrary } from '../guides/GuidesLibrary';
 
@@ -31,7 +32,7 @@ export const GuidesPage: React.FC<GuidesPageProps> = ({
       if (!Array.isArray(data.guides) || !Array.isArray(data.categories)) {
         throw new Error('Authorization required.');
       }
-      setGuides(data.guides);
+      setGuides(mergeDefaultEmbeddedModules(data.guides, data.categories));
       setCategories(data.categories);
       setAuthorized(true);
       onAuthChange?.(true);

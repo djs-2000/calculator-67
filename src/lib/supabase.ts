@@ -7,41 +7,25 @@ export function normalizeSupabaseUrl(raw: string): string {
     .replace(/\/+$/, '');
 }
 
-export const normalizedSupabaseUrl = normalizeSupabaseUrl(
-  import.meta.env.VITE_SUPABASE_URL ||
-    import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
-    ''
-);
+const SUPABASE_URL_CONFIG = 'https://qmzbcwwpptbaunaqhyby.supabase.co';
+const SUPABASE_ANON_KEY_CONFIG = 'sb_publishable_hrT5IbZnGOa_QM9phaq58g_qIRYoeWh';
 
-export const supabaseAnonKey = (
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  ''
-).trim();
-
-export const isSupabaseClientConfigured =
-  Boolean(normalizedSupabaseUrl) &&
-  Boolean(supabaseAnonKey) &&
-  !normalizedSupabaseUrl.includes('your-project-ref') &&
-  !supabaseAnonKey.includes('your-supabase');
+export const normalizedSupabaseUrl = normalizeSupabaseUrl(SUPABASE_URL_CONFIG);
+export const supabaseAnonKey = SUPABASE_ANON_KEY_CONFIG.trim();
+export const isSupabaseClientConfigured = true;
 
 export function resolveBackendMode(): 'api' | 'supabase' {
-  const explicit = (import.meta.env.VITE_BACKEND_MODE ?? '').trim().toLowerCase();
-  if (explicit === 'supabase' || explicit === 'api') {
-    return explicit;
-  }
-  if (!import.meta.env.DEV && isSupabaseClientConfigured) {
-    return 'supabase';
-  }
-  return 'api';
+  return 'supabase';
 }
 
-export const supabase: SupabaseClient | null = isSupabaseClientConfigured
-  ? createClient(normalizedSupabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: false,
-      },
-    })
-  : null;
+export const supabase: SupabaseClient = createClient(
+  normalizedSupabaseUrl,
+  supabaseAnonKey,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
+  }
+);

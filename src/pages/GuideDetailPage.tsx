@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { fetchProtectedCatalog, clearStoredAccessSession } from '../lib/api';
 import { type GuideCategory, type GuideItem } from '../guides/types';
+import { mergeDefaultEmbeddedModules } from '../guides/defaultEmbeddedModules';
 import { GuidesAccessGate } from '../guides/GuidesAccessGate';
 import { GridPathCanvas } from '../guides/interactive/GridPathCanvas';
 import { MatrixMergeBoard } from '../guides/interactive/MatrixMergeBoard';
@@ -13,6 +14,116 @@ interface GuideDetailPageProps {
   backendConfigured: boolean;
   onNavigate: (to: string) => void;
   onAuthChange?: (authorized: boolean) => void;
+}
+
+interface AcademicSupplement {
+  courseAlignment: string;
+  objectives: string[];
+  formulas: Array<{ label: string; expression: string; note: string }>;
+  methodology: string;
+  questions: string[];
+}
+
+function getAcademicSupplement(slug: string): AcademicSupplement {
+  if (slug === 'polytrack-kinematics') {
+    return {
+      courseAlignment:
+        'AP Physics 1 (Circular Motion & Energy) · Multivariable Calculus (Parametric Splines)',
+      objectives: [
+        'Analyze how centripetal acceleration (a_c = v² / r) constrains maximum tangential speed along variable-radius curves.',
+        'Observe banked-surface normal-force components and static friction thresholds during rapid directional transitions.',
+        'Evaluate optimal geometric racing lines (minimum curvature pathing) to minimize elapsed phase time.',
+      ],
+      formulas: [
+        {
+          label: 'Centripetal Force Requirement',
+          expression: 'F_c = (m · v²) / r',
+          note: 'Smaller curve radii require proportionally lower entry velocity to maintain lateral traction.',
+        },
+        {
+          label: 'Ideal Banked Curve Angle',
+          expression: 'tan(θ) = v² / (r · g)',
+          note: 'Eliminates lateral friction dependency at the critical equilibrium speed v = √(r · g · tan θ).',
+        },
+        {
+          label: 'Parametric Curvature',
+          expression: 'κ(t) = |r′(t) × r″(t)| / |r′(t)|³',
+          note: 'Measures instantaneous turning intensity along piecewise cubic track segments.',
+        },
+      ],
+      methodology:
+        'During this laboratory simulation, inspect each elevated loop, crest, and hairpin segment as a piecewise-smooth parametric curve r(t). Notice how late-apex braking reduces kinetic energy prior to high-curvature transitions, allowing sustained acceleration out of the tangent point while conserving angular stability.',
+      questions: [
+        'Explain why widening the effective radius of turn entry reduces peak lateral acceleration even when forward velocity increases.',
+        'Identify where gravitational potential energy (mgh) converts into translational kinetic energy (½mv²) across vertical track drops.',
+        'Compare two distinct path trajectories through a 180-degree curve and record which yields a superior elapsed benchmark.',
+      ],
+    };
+  }
+
+  if (slug === 'retrobowl-kinematics') {
+    return {
+      courseAlignment:
+        'Algebra II (Quadratic Modeling) · AP Physics 1 (2D Kinematics) · AP Statistics (Expected Value)',
+      objectives: [
+        'Model two-dimensional parabolic trajectories under uniform vertical gravitational acceleration and variable horizontal release velocities.',
+        'Calculate real-time linear intercept points between a moving receiver vector and a projectile flight path.',
+        'Apply expected-value decision theory and clock-interval budgeting across finite four-trial conversion sequences.',
+      ],
+      formulas: [
+        {
+          label: 'Vertical Displacement',
+          expression: 'y(t) = y₀ + (v₀ · sin θ)t − ½ · g · t²',
+          note: 'Determines flight duration and apex height for a parabolic release angle θ.',
+        },
+        {
+          label: 'Horizontal Range',
+          expression: 'R = (v₀² · sin 2θ) / g',
+          note: 'Relates launch magnitude and angle to downfield spatial reach.',
+        },
+        {
+          label: 'Expected Value Optimization',
+          expression: 'E[X] = Σ pᵢ · xᵢ',
+          note: 'Balances high-probability short-interval gains against low-probability long-range variance.',
+        },
+      ],
+      methodology:
+        'Treat each offensive sequence as a stochastic optimization problem constrained by discrete spatial thresholds (10-unit intervals) and bounded time intervals. Before releasing each pass vector, estimate the receiver’s future displacement x_r(t) = x₀ + v_r·t so projectile arrival coincides with the predicted coordinate.',
+      questions: [
+        'How does increasing launch elevation change total hang time t_flight and increase vulnerability to lateral defender convergence?',
+        'Given two high-percentage 6-unit routes versus one low-probability 25-unit route, compute the break-even probability required for equal expected value.',
+        'Describe how discrete interval budgeting influences risk tolerance when remaining clock time drops below 30 seconds.',
+      ],
+    };
+  }
+
+  return {
+    courseAlignment:
+      'Algebra I–II · Discrete Mathematics · Computational Logic & Reasoning',
+    objectives: [
+      'Formulate invariant state rules before executing sequential transformations.',
+      'Evaluate trade-offs between immediate local gains and long-term structural stability.',
+      'Compare observed accuracy metrics against recorded baseline benchmarks.',
+    ],
+    formulas: [
+      {
+        label: 'State Transition Function',
+        expression: 'S_{n+1} = f(S_n, u_n)',
+        note: 'Each step deterministically or stochastically updates system configuration based on input u_n.',
+      },
+      {
+        label: 'Relative Benchmark Ratio',
+        expression: 'η = Accuracy / Benchmark',
+        note: 'Normalizes session efficiency across successive phases.',
+      },
+    ],
+    methodology:
+      'Analyze each phase carefully by identifying boundary conditions before initiating input sequences. Record deviations from expected equilibrium states and verify how incremental adjustments propagate across the diagram.',
+    questions: [
+      'Which structural invariant is easiest to violate during high-speed sequences, and what early heuristic prevents failure?',
+      'Summarize how dividing the problem into discrete phases improved your overall accuracy rate.',
+    ],
+  };
 }
 
 export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
@@ -34,7 +145,8 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
       if (!Array.isArray(data.guides) || !Array.isArray(data.categories)) {
         throw new Error('Authorization required.');
       }
-      const found = data.guides.find((g) => g.slug === slug) ?? null;
+      const mergedGuides = mergeDefaultEmbeddedModules(data.guides, data.categories);
+      const found = mergedGuides.find((g) => g.slug === slug) ?? null;
       const cat = data.categories.find(
         (c: GuideCategory) => c.id === found?.category_id
       );
@@ -102,6 +214,8 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
     );
   }
 
+  const supplement = getAcademicSupplement(moduleItem.slug);
+
   const renderInteractiveModule = () => {
     switch (moduleItem.slug) {
       case 'grid-path':
@@ -155,6 +269,9 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
         </h1>
         <p className="text-sm italic text-[#555555]">
           Applied Case Study: {moduleItem.title} — {moduleItem.description}
+        </p>
+        <p className="text-xs text-[#666666] pt-1">
+          Curricular Alignment: {supplement.courseAlignment}
         </p>
       </header>
 
@@ -212,6 +329,38 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
         </p>
       </section>
 
+      <section className="pt-4 border-t border-[#e0e0e0] space-y-5 text-[15px] leading-[1.75] text-[#333333]">
+        <div className="space-y-2">
+          <h2 className="text-lg font-normal text-[#333333]">
+            Applied Quantitative Objectives &amp; Governing Equations
+          </h2>
+          <p className="text-sm text-[#4a4a4a] leading-relaxed">
+            {supplement.methodology}
+          </p>
+          <ul className="list-disc pl-6 space-y-1.5 text-sm text-[#333333]">
+            {supplement.objectives.map((obj, idx) => (
+              <li key={idx}>{obj}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-sm uppercase tracking-widest text-[#666666]">
+            Reference Formulas for Observation
+          </h3>
+          <div className="space-y-2.5 border-l-2 border-[#cccccc] pl-4">
+            {supplement.formulas.map((f, idx) => (
+              <div key={idx} className="text-sm">
+                <div className="font-bold text-[#333333]">
+                  {f.label}: <span className="font-normal italic">{f.expression}</span>
+                </div>
+                <div className="text-xs text-[#555555]">{f.note}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="pt-6 border-t border-[#e0e0e0] space-y-4">
         <div className="space-y-1">
           <h2 className="text-lg font-normal text-[#333333]">
@@ -232,8 +381,8 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
               Prerequisite Reading Verification
             </h3>
             <p className="text-sm text-[#4a4a4a] max-w-md mx-auto leading-relaxed">
-              Ensure you have reviewed the four-paragraph passage on formal logic and
-              computational thinking above before activating the interactive diagram.
+              Ensure you have reviewed the reading passage and governing equations above
+              before activating the interactive diagram.
             </p>
             <div className="pt-2 flex items-center justify-center gap-6">
               {moduleItem.mode === 'external' && moduleItem.external_url ? (
@@ -251,7 +400,7 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
                   onClick={() => setDiagramRevealed(true)}
                   className="text-sm underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
                 >
-                  Begin Exercise →
+                  {moduleItem.mode === 'embed' ? 'Launch Simulation →' : 'Begin Exercise →'}
                 </button>
               )}
             </div>
@@ -262,18 +411,28 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
 
             {moduleItem.mode === 'embed' && moduleItem.embed_url && (
               <div className="space-y-3">
-                <div className="aspect-video w-full overflow-hidden bg-white">
+                <div className="aspect-[16/10] w-full min-h-[480px] overflow-hidden bg-white border border-[#d4d4d4]">
                   <iframe
                     src={moduleItem.embed_url}
                     title={moduleItem.title}
                     className="w-full h-full border-0"
-                    sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms"
+                    allow="autoplay; fullscreen; pointer-lock"
                     allowFullScreen
                   />
                 </div>
-                <p className="text-xs italic text-[#555555] text-right">
-                  Figure 1.1b: Embedded computational module viewport.
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs italic text-[#555555]">
+                  <span>
+                    Figure 1.1b: Click inside the simulation viewport to focus keyboard or
+                    pointer vectors.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDiagramRevealed(false)}
+                    className="underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#555555]"
+                  >
+                    Collapse Diagram
+                  </button>
+                </div>
               </div>
             )}
 
@@ -294,6 +453,17 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
             )}
           </div>
         )}
+      </section>
+
+      <section className="pt-6 border-t border-[#e0e0e0] space-y-3 text-sm text-[#333333]">
+        <h2 className="text-base font-normal text-[#333333]">
+          Post-Simulation Analysis Prompts
+        </h2>
+        <ol className="list-decimal pl-6 space-y-2 leading-relaxed text-[#4a4a4a]">
+          {supplement.questions.map((q, idx) => (
+            <li key={idx}>{q}</li>
+          ))}
+        </ol>
       </section>
     </article>
   );

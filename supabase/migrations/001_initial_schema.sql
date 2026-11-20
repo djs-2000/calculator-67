@@ -184,6 +184,16 @@ SELECT 'procedural-terrain', 'Procedural Horizon Guide', 'Guide to procedural te
 FROM public.game_categories WHERE slug = 'physics-motion'
 ON CONFLICT (slug) DO NOTHING;
 
+INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
+SELECT 'polytrack-kinematics', 'PolyTrack — Spline Kinematics & Friction Lab', 'Interactive low-poly kinematic simulation analyzing centripetal acceleration, banked-curve friction limits, spline curvature optimization, and angular momentum across bounded tracks.', id, '', 'embed', 'https://joe-the-chicken.github.io/polytrack/', NULL, true
+FROM public.game_categories WHERE slug = 'physics-motion'
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
+SELECT 'retrobowl-kinematics', 'Retro Bowl — Parabolic Trajectory & Expected Value Lab', 'Applied probability and projectile mechanics simulation modeling parabolic release angles, lateral intercept vectors, expected-value decision trees, and discrete interval budgeting.', id, '', 'embed', 'https://game316009.konggames.com/gamez/0031/6009/live/index.html', NULL, true
+FROM public.game_categories WHERE slug = 'tactics-logic'
+ON CONFLICT (slug) DO NOTHING;
+
 INSERT INTO public.app_settings (key, value) VALUES
   ('session_ttl_hours', '{"hours": 8}'::jsonb),
   ('rate_limit', '{"max_attempts": 5, "window_minutes": 15}'::jsonb)
