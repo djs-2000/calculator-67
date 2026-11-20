@@ -2,12 +2,14 @@ import {
   supabase,
   isSupabaseClientConfigured,
   normalizedSupabaseUrl,
+  supabaseAnonKey,
+  resolveBackendMode,
 } from './supabase';
 
 const SESSION_STORAGE_KEY = 'calculator_access_session';
-const BACKEND_MODE = (import.meta.env.VITE_BACKEND_MODE ?? 'api').trim().toLowerCase();
+const BACKEND_MODE = resolveBackendMode();
 const SUPABASE_URL = normalizedSupabaseUrl;
-const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
+const SUPABASE_ANON_KEY = supabaseAnonKey;
 
 export interface StoredAccessSession {
   token: string;

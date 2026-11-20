@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { useRouter } from './lib/router';
-import { isSupabaseClientConfigured } from './lib/supabase';
+import { isSupabaseClientConfigured, resolveBackendMode } from './lib/supabase';
 import { clearStoredAccessSession } from './lib/api';
 import { CalculatorPage } from './pages/CalculatorPage';
 import { GamesPage } from './pages/GamesPage';
@@ -21,14 +21,20 @@ export default function App() {
   const [, setGamesAuthorized] = useState(false);
 
   useEffect(() => {
-    const mode = (import.meta.env.VITE_BACKEND_MODE ?? 'api').trim().toLowerCase();
+    const mode = resolveBackendMode();
     if (mode === 'supabase') {
       setBackendConfigured(isSupabaseClientConfigured);
       return;
     }
 
     fetch('/api/health')
-      .then((res) => res.json())
+      .then((res) => {
+        const ct = res.headers.get('content-type') ?? '';
+        if (!res.ok || !ct.includes('application/json')) {
+          throw new Error('Health endpoint unavailable');
+        }
+        return res.json();
+      })
       .then((data: { supabaseConfigured?: boolean }) => {
         setBackendConfigured(Boolean(data.supabaseConfigured));
       })
