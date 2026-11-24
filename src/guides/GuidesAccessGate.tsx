@@ -46,7 +46,7 @@ export const GuidesAccessGate: React.FC<GuidesAccessGateProps> = ({
 
       <h1 className="text-xl font-semibold text-slate-900">Protected Study Guides</h1>
       <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
-        Enter a valid access code or sign in as an administrator to open the guides library.
+        Enter a valid one-time access code or sign in as an administrator to open the guides library.
       </p>
 
       {!backendConfigured && (

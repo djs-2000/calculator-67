@@ -4,6 +4,7 @@ import {
   fetchProtectedCatalog,
   clearStoredAccessSession,
 } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import { type GuideCategory, type GuideItem } from '../guides/types';
 import { mergeDefaultEmbeddedModules } from '../guides/defaultEmbeddedModules';
 import { GuidesAccessGate } from '../guides/GuidesAccessGate';
@@ -47,6 +48,17 @@ export const GuidesPage: React.FC<GuidesPageProps> = ({
     }
   }, [onAuthChange]);
 
+  const handleSignOut = useCallback(async () => {
+    clearStoredAccessSession();
+    if (supabase) {
+      await supabase.auth.signOut().catch(() => undefined);
+    }
+    setGuides([]);
+    setCategories([]);
+    setAuthorized(false);
+    onAuthChange?.(false);
+  }, [onAuthChange]);
+
   useEffect(() => {
     loadCatalog();
   }, [loadCatalog]);
@@ -77,6 +89,7 @@ export const GuidesPage: React.FC<GuidesPageProps> = ({
         guides={guides}
         categories={categories}
         onSelectGuide={(guide) => onNavigate(`/guides/${guide.slug}`)}
+        onSignOut={handleSignOut}
       />
     </div>
   );

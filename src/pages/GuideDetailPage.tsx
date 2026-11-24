@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { fetchProtectedCatalog, clearStoredAccessSession } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import { type GuideCategory, type GuideItem } from '../guides/types';
 import { mergeDefaultEmbeddedModules } from '../guides/defaultEmbeddedModules';
 import { GuidesAccessGate } from '../guides/GuidesAccessGate';
@@ -266,6 +267,17 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
     }
   }, [slug, onAuthChange]);
 
+  const handleSignOut = useCallback(async () => {
+    clearStoredAccessSession();
+    if (supabase) {
+      await supabase.auth.signOut().catch(() => undefined);
+    }
+    setModuleItem(null);
+    setAuthorized(false);
+    onAuthChange?.(false);
+    onNavigate('/guides');
+  }, [onAuthChange, onNavigate]);
+
   useEffect(() => {
     loadModule();
   }, [loadModule]);
@@ -345,7 +357,7 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
         backgroundColor: '#ffffff',
       }}
     >
-      <nav className="text-sm">
+      <nav className="flex items-center justify-between gap-4 text-sm">
         <button
           type="button"
           onClick={() => onNavigate('/guides')}
@@ -353,6 +365,13 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
           style={{ color: '#333333' }}
         >
           ← Return to Module Index
+        </button>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="text-xs underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#555555] hover:text-[#333333]"
+        >
+          Sign Out
         </button>
       </nav>
 

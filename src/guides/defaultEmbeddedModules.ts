@@ -31,28 +31,85 @@ const DEFAULT_EMBEDDED_BLUEPRINTS: EmbeddedModuleBlueprint[] = [
     description:
       'Rigid-body mechanics simulation investigating rotational torque, center-of-mass balance, suspension impulse damping, and wheel-surface static friction across irregular terrain.',
     categorySlug: 'physics-motion',
-    embed_url: 'https://www.drivemad.com/',
+    embed_url: '/modules/drive-mad/index.html',
   },
 ];
+
+const EXCLUDED_SLUGS = new Set([
+  'procedural-terrain',
+  'slow-roads',
+  'motox3m-kinematics',
+  'moto-x3m',
+  'bitlife-probability',
+  'bitlife',
+]);
 
 export function mergeDefaultEmbeddedModules(
   guides: GuideItem[],
   categories: GuideCategory[]
 ): GuideItem[] {
-  const existingSlugs = new Set(guides.map((g) => g.slug));
   const categoryBySlug = new Map(categories.map((c) => [c.slug, c.id]));
   const fallbackCategoryId = categories[0]?.id ?? 'general';
-  const merged = guides.map((g) =>
-    g.slug === 'polytrack-kinematics' &&
-    typeof g.embed_url === 'string' &&
-    g.embed_url.includes('github.io/polytrack')
-      ? { ...g, embed_url: '/modules/polytrack/index.html' }
-      : g
-  );
+
+  const normalized = guides
+    .filter((g) => {
+      if (EXCLUDED_SLUGS.has(g.slug.toLowerCase())) return false;
+      const ext = (g.external_url ?? '').toLowerCase();
+      const emb = (g.embed_url ?? '').toLowerCase();
+      if (ext.includes('slowroads.io') || emb.includes('slowroads.io')) return false;
+      return true;
+    })
+    .map((g): GuideItem => {
+      const lowerSlug = g.slug.toLowerCase();
+      const lowerTitle = g.title.toLowerCase();
+
+      if (
+        lowerSlug === 'polytrack-kinematics' ||
+        lowerSlug === 'polytrack' ||
+        lowerTitle.includes('polytrack')
+      ) {
+        return {
+          ...g,
+          mode: 'embed',
+          embed_url: '/modules/polytrack/index.html',
+          external_url: null,
+        };
+      }
+
+      if (
+        lowerSlug === 'retrobowl-kinematics' ||
+        lowerSlug === 'retro-bowl' ||
+        lowerTitle.includes('retro bowl')
+      ) {
+        return {
+          ...g,
+          mode: 'embed',
+          embed_url: 'https://retro-bowl-six.vercel.app/',
+          external_url: null,
+        };
+      }
+
+      if (
+        lowerSlug === 'drivemad-kinematics' ||
+        lowerSlug === 'drive-mad' ||
+        lowerTitle.includes('drive mad')
+      ) {
+        return {
+          ...g,
+          mode: 'embed',
+          embed_url: '/modules/drive-mad/index.html',
+          external_url: null,
+        };
+      }
+
+      return g;
+    });
+
+  const existingSlugs = new Set(normalized.map((g) => g.slug));
 
   for (const bp of DEFAULT_EMBEDDED_BLUEPRINTS) {
     if (existingSlugs.has(bp.slug)) continue;
-    merged.push({
+    normalized.push({
       id: `default-${bp.slug}`,
       slug: bp.slug,
       title: bp.title,
@@ -67,5 +124,5 @@ export function mergeDefaultEmbeddedModules(
     });
   }
 
-  return merged;
+  return normalized;
 }

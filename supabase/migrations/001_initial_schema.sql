@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.access_codes (
   label text,
   is_active boolean NOT NULL DEFAULT true,
   expires_at timestamptz,
+  used_at timestamptz,
   revoked_at timestamptz,
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -180,11 +181,6 @@ FROM public.game_categories WHERE slug = 'tactics-logic'
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
-SELECT 'procedural-terrain', 'Procedural Horizon Guide', 'Guide to procedural terrain generation, steering curve dynamics, and endless horizon rendering at the official showcase.', id, '', 'external', NULL, 'https://slowroads.io', true
-FROM public.game_categories WHERE slug = 'physics-motion'
-ON CONFLICT (slug) DO NOTHING;
-
-INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
 SELECT 'polytrack-kinematics', 'PolyTrack — Spline Kinematics & Friction Lab', 'Interactive low-poly kinematic simulation analyzing centripetal acceleration, banked-curve friction limits, spline curvature optimization, and angular momentum across bounded tracks.', id, '', 'embed', '/modules/polytrack/index.html', NULL, true
 FROM public.game_categories WHERE slug = 'physics-motion'
 ON CONFLICT (slug) DO NOTHING;
@@ -195,7 +191,7 @@ FROM public.game_categories WHERE slug = 'tactics-logic'
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
-SELECT 'drivemad-kinematics', 'Drive Mad — Torque Equilibrium & Suspension Lab', 'Rigid-body mechanics simulation investigating rotational torque, center-of-mass balance, suspension impulse damping, and wheel-surface static friction across irregular terrain.', id, '', 'embed', 'https://www.drivemad.com/', NULL, true
+SELECT 'drivemad-kinematics', 'Drive Mad — Torque Equilibrium & Suspension Lab', 'Rigid-body mechanics simulation investigating rotational torque, center-of-mass balance, suspension impulse damping, and wheel-surface static friction across irregular terrain.', id, '', 'embed', '/modules/drive-mad/index.html', NULL, true
 FROM public.game_categories WHERE slug = 'physics-motion'
 ON CONFLICT (slug) DO NOTHING;
 

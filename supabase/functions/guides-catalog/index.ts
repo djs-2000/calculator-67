@@ -97,29 +97,45 @@ Deno.serve(async (req) => {
         : cat;
     });
 
-    const guides = (rawItems ?? []).map((item) => {
-      const mapped = LEGACY_GUIDE_MAP[item.slug];
-      const resolvedSlug = mapped ? mapped.slug : item.slug;
-      const resolvedEmbedUrl =
-        resolvedSlug === 'polytrack-kinematics' &&
-        typeof item.embed_url === 'string' &&
-        item.embed_url.includes('github.io/polytrack')
-          ? '/modules/polytrack/index.html'
-          : item.embed_url;
-      return {
-        id: item.id,
-        slug: resolvedSlug,
-        title: mapped ? mapped.title : item.title,
-        description: mapped ? mapped.description : item.description,
-        category_id: item.category_id,
-        thumbnail_url: mapped ? mapped.thumbnail_url : item.thumbnail_url,
-        mode: item.play_mode,
-        embed_url: resolvedEmbedUrl,
-        external_url: item.external_url,
-        is_active: item.is_active,
-        created_at: item.created_at,
-      };
-    });
+    const guides = (rawItems ?? [])
+      .filter(
+        (item) =>
+          item.slug !== 'slow-roads' &&
+          item.slug !== 'procedural-terrain' &&
+          item.slug !== 'motox3m-kinematics' &&
+          item.slug !== 'moto-x3m' &&
+          item.slug !== 'bitlife-probability' &&
+          item.slug !== 'bitlife' &&
+          !(item.external_url ?? '').toLowerCase().includes('slowroads.io')
+      )
+      .map((item) => {
+        const mapped = LEGACY_GUIDE_MAP[item.slug];
+        const resolvedSlug = mapped ? mapped.slug : item.slug;
+        const resolvedTitle = mapped ? mapped.title : item.title;
+        const lowerSlug = resolvedSlug.toLowerCase();
+        const lowerTitle = resolvedTitle.toLowerCase();
+
+        let selfHostedEmbed: string | null = null;
+        if (lowerSlug === 'polytrack-kinematics' || lowerSlug === 'polytrack' || lowerTitle.includes('polytrack')) {
+          selfHostedEmbed = '/modules/polytrack/index.html';
+        } else if (lowerSlug === 'drivemad-kinematics' || lowerSlug === 'drive-mad' || lowerTitle.includes('drive mad')) {
+          selfHostedEmbed = '/modules/drive-mad/index.html';
+        }
+
+        return {
+          id: item.id,
+          slug: resolvedSlug,
+          title: resolvedTitle,
+          description: mapped ? mapped.description : item.description,
+          category_id: item.category_id,
+          thumbnail_url: mapped ? mapped.thumbnail_url : item.thumbnail_url,
+          mode: selfHostedEmbed ? 'embed' : item.play_mode,
+          embed_url: selfHostedEmbed ?? item.embed_url,
+          external_url: selfHostedEmbed ? null : item.external_url,
+          is_active: item.is_active,
+          created_at: item.created_at,
+        };
+      });
 
     const catBySlug = new Map(categories.map((c) => [c.slug, c.id]));
     const fallbackCatId = categories[0]?.id ?? 'general';
@@ -148,7 +164,7 @@ Deno.serve(async (req) => {
         description:
           'Rigid-body mechanics simulation investigating rotational torque, center-of-mass balance, suspension impulse damping, and wheel-surface static friction across irregular terrain.',
         category_id: catBySlug.get('physics-motion') ?? fallbackCatId,
-        embed_url: 'https://www.drivemad.com/',
+        embed_url: '/modules/drive-mad/index.html',
       },
     ];
 

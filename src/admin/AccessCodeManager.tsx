@@ -77,12 +77,13 @@ export const AccessCodeManager: React.FC = () => {
       <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-4">
         <div>
           <h2 className="text-base font-semibold text-slate-900">
-            Generate or Rotate Access Code
+            Generate or Rotate One-Time Access Code
           </h2>
           <p className="mt-1 text-xs text-slate-600">
-            Codes are generated cryptographically on the server and stored exclusively as
-            SHA-256 hashes. Rotating revokes all previous active codes and active visitor
-            sessions.
+            Every access code is single-use: once redeemed, it creates one visitor session
+            and cannot be entered again. Codes are generated cryptographically and stored
+            exclusively as SHA-256 hashes. Rotating revokes all previous codes and active
+            visitor sessions.
           </p>
         </div>
 
@@ -150,7 +151,7 @@ export const AccessCodeManager: React.FC = () => {
             className="px-4 py-2 rounded-md bg-white hover:bg-slate-50 disabled:opacity-50 text-slate-800 border border-slate-300 text-xs font-medium inline-flex items-center gap-1.5"
           >
             <Plus className="w-3.5 h-3.5" />
-            Generate Additional Code
+            Generate One-Time Code
           </button>
         </div>
 
@@ -158,7 +159,7 @@ export const AccessCodeManager: React.FC = () => {
           <div className="p-4 rounded-md bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-medium text-emerald-900">
-                New access code (copy now — plaintext is not stored):
+                New single-use access code (copy now — plaintext is not stored):
               </p>
               <p className="mt-1 text-lg font-mono-num font-bold text-emerald-950 tracking-wider">
                 {generatedCode}
@@ -221,7 +222,10 @@ export const AccessCodeManager: React.FC = () => {
                     ? 'Revoked'
                     : expired
                       ? 'Expired'
-                      : 'Active';
+                      : c.used_at
+                        ? 'Used'
+                        : 'Active';
+                  const canRevoke = statusLabel === 'Active' || statusLabel === 'Used';
                   return (
                     <tr key={c.id} className="hover:bg-slate-50/70">
                       <td className="py-2.5 px-4 font-mono-num font-medium text-slate-900">
@@ -235,11 +239,18 @@ export const AccessCodeManager: React.FC = () => {
                           className={`font-medium ${
                             statusLabel === 'Active'
                               ? 'text-emerald-700'
-                              : 'text-slate-500'
+                              : statusLabel === 'Used'
+                                ? 'text-amber-700'
+                                : 'text-slate-500'
                           }`}
                         >
                           {statusLabel}
                         </span>
+                        {c.used_at && statusLabel !== 'Revoked' && (
+                          <div className="text-[11px] font-mono-num text-slate-400">
+                            {new Date(c.used_at).toLocaleString()}
+                          </div>
+                        )}
                       </td>
                       <td className="py-2.5 px-4 font-mono-num text-slate-600">
                         {new Date(c.created_at).toLocaleString()}
@@ -250,13 +261,14 @@ export const AccessCodeManager: React.FC = () => {
                           : 'Never'}
                       </td>
                       <td className="py-2.5 px-4 text-right">
-                        {statusLabel === 'Active' ? (
+                        {canRevoke ? (
                           <button
                             type="button"
                             onClick={() => handleRevoke(c.id)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-red-700 hover:bg-red-50 border border-red-200 font-medium"
                           >
-                            <Ban className="w-3 h-3" /> Revoke
+                            <Ban className="w-3 h-3" />{' '}
+                            {statusLabel === 'Used' ? 'Revoke Session' : 'Revoke'}
                           </button>
                         ) : (
                           <span className="text-slate-400">—</span>

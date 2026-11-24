@@ -198,20 +198,41 @@ async function startServer() {
     }
 
     const codeHash = sha256Hex(`code:${code}`);
-    const { data: codeRow } = await supabase
+    let hasUsedAtColumn = true;
+
+    let codeRow: {
+      id: string;
+      is_active: boolean;
+      expires_at: string | null;
+      revoked_at: string | null;
+      used_at: string | null;
+    } | null = null;
+
+    const primaryLookup = await supabase
       .from('access_codes')
-      .select('id, is_active, expires_at, revoked_at')
+      .select('id, is_active, expires_at, revoked_at, used_at')
       .eq('code_hash', codeHash)
       .maybeSingle();
 
-    const isValid =
-      Boolean(codeRow) &&
-      codeRow!.is_active &&
-      !codeRow!.revoked_at &&
-      (!codeRow!.expires_at ||
-        new Date(codeRow!.expires_at).getTime() > now.getTime());
+    if (
+      primaryLookup.error &&
+      (primaryLookup.error.code === '42703' ||
+        primaryLookup.error.message?.includes('used_at'))
+    ) {
+      hasUsedAtColumn = false;
+      const fallbackLookup = await supabase
+        .from('access_codes')
+        .select('id, is_active, expires_at, revoked_at')
+        .eq('code_hash', codeHash)
+        .maybeSingle();
+      if (fallbackLookup.data) {
+        codeRow = { ...fallbackLookup.data, used_at: null };
+      }
+    } else {
+      codeRow = primaryLookup.data;
+    }
 
-    if (!isValid) {
+    const sendInvalidAttempt = async () => {
       const windowExpired =
         !limitRow ||
         now.getTime() - new Date(limitRow.window_started_at).getTime() > WINDOW_MS;
@@ -234,9 +255,51 @@ async function startServer() {
         error:
           nextAttempts >= MAX_ATTEMPTS
             ? 'Too many invalid attempts. Please try again later.'
-            : 'Invalid or expired access code.',
+            : 'Invalid, already used, or expired access code.',
       });
+    };
+
+    const isEligible =
+      Boolean(codeRow) &&
+      codeRow!.is_active &&
+      !codeRow!.revoked_at &&
+      !codeRow!.used_at &&
+      (!codeRow!.expires_at ||
+        new Date(codeRow!.expires_at).getTime() > now.getTime());
+
+    if (!isEligible) {
+      await sendInvalidAttempt();
       return;
+    }
+
+    const nowIso = now.toISOString();
+
+    if (hasUsedAtColumn) {
+      const { data: claimed, error: claimErr } = await supabase
+        .from('access_codes')
+        .update({ used_at: nowIso })
+        .eq('id', codeRow!.id)
+        .is('used_at', null)
+        .eq('is_active', true)
+        .is('revoked_at', null)
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+        .select('id')
+        .maybeSingle();
+
+      if (claimErr || !claimed) {
+        await sendInvalidAttempt();
+        return;
+      }
+    } else {
+      const { count: priorUses } = await supabase
+        .from('access_sessions')
+        .select('id', { count: 'exact', head: true })
+        .eq('access_code_id', codeRow!.id);
+
+      if ((priorUses ?? 0) > 0) {
+        await sendInvalidAttempt();
+        return;
+      }
     }
 
     await supabase.from('access_rate_limits').delete().eq('ip_hash', ipHash);
@@ -250,15 +313,43 @@ async function startServer() {
     }
     const expiresAt = new Date(expiresAtMs).toISOString();
 
-    const { error: insertErr } = await supabase.from('access_sessions').insert({
-      token_hash: tokenHash,
-      access_code_id: codeRow!.id,
-      expires_at: expiresAt,
-    });
+    const { data: insertedSession, error: insertErr } = await supabase
+      .from('access_sessions')
+      .insert({
+        token_hash: tokenHash,
+        access_code_id: codeRow!.id,
+        expires_at: expiresAt,
+      })
+      .select('id, created_at')
+      .single();
 
-    if (insertErr) {
+    if (insertErr || !insertedSession) {
+      if (hasUsedAtColumn) {
+        await supabase
+          .from('access_codes')
+          .update({ used_at: null })
+          .eq('id', codeRow!.id)
+          .eq('used_at', nowIso);
+      }
       res.status(500).json({ error: 'Unable to issue session.' });
       return;
+    }
+
+    if (!hasUsedAtColumn) {
+      const { data: firstSession } = await supabase
+        .from('access_sessions')
+        .select('id')
+        .eq('access_code_id', codeRow!.id)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (firstSession && firstSession.id !== insertedSession.id) {
+        await supabase.from('access_sessions').delete().eq('id', insertedSession.id);
+        await sendInvalidAttempt();
+        return;
+      }
     }
 
     res.json({ authorized: true, sessionToken, expiresAt });
@@ -375,29 +466,45 @@ async function startServer() {
       return mapped ? { ...cat, name: mapped.name, slug: mapped.slug } : cat;
     });
 
-    const guides = (rawItems ?? []).map((item) => {
-      const mapped = LEGACY_GUIDE_MAP[item.slug];
-      const resolvedSlug = mapped ? mapped.slug : item.slug;
-      const resolvedEmbedUrl =
-        resolvedSlug === 'polytrack-kinematics' &&
-        typeof item.embed_url === 'string' &&
-        item.embed_url.includes('github.io/polytrack')
-          ? '/modules/polytrack/index.html'
-          : item.embed_url;
-      return {
-        id: item.id,
-        slug: resolvedSlug,
-        title: mapped ? mapped.title : item.title,
-        description: mapped ? mapped.description : item.description,
-        category_id: item.category_id,
-        thumbnail_url: mapped ? mapped.thumbnail_url : item.thumbnail_url,
-        mode: item.play_mode,
-        embed_url: resolvedEmbedUrl,
-        external_url: item.external_url,
-        is_active: item.is_active,
-        created_at: item.created_at,
-      };
-    });
+    const guides = (rawItems ?? [])
+      .filter(
+        (item) =>
+          item.slug !== 'slow-roads' &&
+          item.slug !== 'procedural-terrain' &&
+          item.slug !== 'motox3m-kinematics' &&
+          item.slug !== 'moto-x3m' &&
+          item.slug !== 'bitlife-probability' &&
+          item.slug !== 'bitlife' &&
+          !(item.external_url ?? '').toLowerCase().includes('slowroads.io')
+      )
+      .map((item) => {
+        const mapped = LEGACY_GUIDE_MAP[item.slug];
+        const resolvedSlug = mapped ? mapped.slug : item.slug;
+        const resolvedTitle = mapped ? mapped.title : item.title;
+        const lowerSlug = resolvedSlug.toLowerCase();
+        const lowerTitle = resolvedTitle.toLowerCase();
+
+        let selfHostedEmbed: string | null = null;
+        if (lowerSlug === 'polytrack-kinematics' || lowerSlug === 'polytrack' || lowerTitle.includes('polytrack')) {
+          selfHostedEmbed = '/modules/polytrack/index.html';
+        } else if (lowerSlug === 'drivemad-kinematics' || lowerSlug === 'drive-mad' || lowerTitle.includes('drive mad')) {
+          selfHostedEmbed = '/modules/drive-mad/index.html';
+        }
+
+        return {
+          id: item.id,
+          slug: resolvedSlug,
+          title: resolvedTitle,
+          description: mapped ? mapped.description : item.description,
+          category_id: item.category_id,
+          thumbnail_url: mapped ? mapped.thumbnail_url : item.thumbnail_url,
+          mode: selfHostedEmbed ? 'embed' : item.play_mode,
+          embed_url: selfHostedEmbed ?? item.embed_url,
+          external_url: selfHostedEmbed ? null : item.external_url,
+          is_active: item.is_active,
+          created_at: item.created_at,
+        };
+      });
 
     const catBySlug = new Map(categories.map((c) => [c.slug, c.id]));
     const fallbackCatId = categories[0]?.id ?? 'general';
@@ -426,7 +533,7 @@ async function startServer() {
         description:
           'Rigid-body mechanics simulation investigating rotational torque, center-of-mass balance, suspension impulse damping, and wheel-surface static friction across irregular terrain.',
         category_id: catBySlug.get('physics-motion') ?? fallbackCatId,
-        embed_url: 'https://www.drivemad.com/',
+        embed_url: '/modules/drive-mad/index.html',
       },
     ];
 
@@ -476,16 +583,52 @@ async function startServer() {
       return;
     }
 
-    const { data, error } = await admin.supabase
+    const primary = await admin.supabase
       .from('access_codes')
-      .select('id, code_prefix, label, is_active, expires_at, revoked_at, created_at')
+      .select('id, code_prefix, label, is_active, expires_at, used_at, revoked_at, created_at')
       .order('created_at', { ascending: false });
 
-    if (error) {
+    if (
+      primary.error &&
+      (primary.error.code === '42703' || primary.error.message?.includes('used_at'))
+    ) {
+      const fallback = await admin.supabase
+        .from('access_codes')
+        .select('id, code_prefix, label, is_active, expires_at, revoked_at, created_at')
+        .order('created_at', { ascending: false });
+
+      if (fallback.error) {
+        res.status(500).json({ error: 'Failed to load access codes.' });
+        return;
+      }
+
+      const rows = fallback.data ?? [];
+      const codeIds = rows.map((r) => r.id);
+      const usedMap = new Map<string, string>();
+      if (codeIds.length > 0) {
+        const { data: sessions } = await admin.supabase
+          .from('access_sessions')
+          .select('access_code_id, created_at')
+          .in('access_code_id', codeIds)
+          .order('created_at', { ascending: true });
+        for (const s of sessions ?? []) {
+          if (!usedMap.has(s.access_code_id)) {
+            usedMap.set(s.access_code_id, s.created_at);
+          }
+        }
+      }
+
+      res.json({
+        codes: rows.map((r) => ({ ...r, used_at: usedMap.get(r.id) ?? null })),
+      });
+      return;
+    }
+
+    if (primary.error) {
       res.status(500).json({ error: 'Failed to load access codes.' });
       return;
     }
-    res.json({ codes: data ?? [] });
+    res.json({ codes: primary.data ?? [] });
   });
 
   app.post('/api/admin/access-codes', async (req, res) => {
@@ -544,7 +687,7 @@ async function startServer() {
       ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString()
       : null;
 
-    const { data: created, error } = await admin.supabase
+    const primaryInsert = await admin.supabase
       .from('access_codes')
       .insert({
         code_hash: codeHash,
@@ -554,15 +697,41 @@ async function startServer() {
         expires_at: expiresAt,
         created_by: admin.user.id,
       })
-      .select('id, code_prefix, label, is_active, expires_at, revoked_at, created_at')
+      .select('id, code_prefix, label, is_active, expires_at, used_at, revoked_at, created_at')
       .single();
 
-    if (error || !created) {
+    if (
+      primaryInsert.error &&
+      (primaryInsert.error.code === '42703' ||
+        primaryInsert.error.message?.includes('used_at'))
+    ) {
+      const fallbackInsert = await admin.supabase
+        .from('access_codes')
+        .insert({
+          code_hash: codeHash,
+          code_prefix: codePrefix,
+          label,
+          is_active: true,
+          expires_at: expiresAt,
+          created_by: admin.user.id,
+        })
+        .select('id, code_prefix, label, is_active, expires_at, revoked_at, created_at')
+        .single();
+
+      if (fallbackInsert.error || !fallbackInsert.data) {
+        res.status(500).json({ error: 'Unable to generate access code.' });
+        return;
+      }
+      res.status(201).json({ code: { ...fallbackInsert.data, used_at: null }, plaintextCode });
+      return;
+    }
+
+    if (primaryInsert.error || !primaryInsert.data) {
       res.status(500).json({ error: 'Unable to generate access code.' });
       return;
     }
 
-    res.status(201).json({ code: created, plaintextCode });
+    res.status(201).json({ code: primaryInsert.data, plaintextCode });
   });
 
   app.delete('/api/admin/access-codes', async (req, res) => {

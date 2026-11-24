@@ -6,12 +6,14 @@ interface GuidesLibraryProps {
   guides: GuideItem[];
   categories: GuideCategory[];
   onSelectGuide: (guide: GuideItem) => void;
+  onSignOut?: () => void;
 }
 
 export const GuidesLibrary: React.FC<GuidesLibraryProps> = ({
   guides,
   categories,
   onSelectGuide,
+  onSignOut,
 }) => {
   const [search, setSearch] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
@@ -55,9 +57,20 @@ export const GuidesLibrary: React.FC<GuidesLibraryProps> = ({
       style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: '#333333' }}
     >
       <header className="border-b border-[#d4d4d4] pb-4 space-y-2">
-        <p className="text-xs uppercase tracking-widest text-[#666666]">
-          Assigned Curriculum Readings &amp; Modules
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-xs uppercase tracking-widest text-[#666666]">
+            Assigned Curriculum Readings &amp; Modules
+          </p>
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="text-xs underline underline-offset-4 text-[#555555] hover:text-[#333333] cursor-pointer bg-transparent p-0 shrink-0"
+            >
+              Sign Out
+            </button>
+          )}
+        </div>
         <h1 className="text-2xl font-normal text-[#333333]">
           Computational Logic Module Index
         </h1>

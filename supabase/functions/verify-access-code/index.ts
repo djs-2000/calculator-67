@@ -55,19 +55,41 @@ Deno.serve(async (req) => {
     }
 
     const codeHash = await sha256Hex(`code:${code}`);
-    const { data: codeRow } = await supabase
+    let hasUsedAtColumn = true;
+
+    let codeRow: {
+      id: string;
+      is_active: boolean;
+      expires_at: string | null;
+      revoked_at: string | null;
+      used_at: string | null;
+    } | null = null;
+
+    const primaryLookup = await supabase
       .from('access_codes')
-      .select('id, is_active, expires_at, revoked_at')
+      .select('id, is_active, expires_at, revoked_at, used_at')
       .eq('code_hash', codeHash)
       .maybeSingle();
 
-    const isValid =
-      Boolean(codeRow) &&
-      codeRow!.is_active &&
-      !codeRow!.revoked_at &&
-      (!codeRow!.expires_at || new Date(codeRow!.expires_at).getTime() > now.getTime());
+    if (
+      primaryLookup.error &&
+      (primaryLookup.error.code === '42703' ||
+        primaryLookup.error.message?.includes('used_at'))
+    ) {
+      hasUsedAtColumn = false;
+      const fallbackLookup = await supabase
+        .from('access_codes')
+        .select('id, is_active, expires_at, revoked_at')
+        .eq('code_hash', codeHash)
+        .maybeSingle();
+      if (fallbackLookup.data) {
+        codeRow = { ...fallbackLookup.data, used_at: null };
+      }
+    } else {
+      codeRow = primaryLookup.data;
+    }
 
-    if (!isValid) {
+    const recordInvalidAttempt = async () => {
       const windowExpired =
         !limitRow ||
         now.getTime() - new Date(limitRow.window_started_at).getTime() > WINDOW_MS;
@@ -91,10 +113,51 @@ Deno.serve(async (req) => {
           error:
             nextAttempts >= MAX_ATTEMPTS
               ? 'Too many invalid attempts. Please try again later.'
-              : 'Invalid or expired access code.',
+              : 'Invalid, already used, or expired access code.',
         },
         nextAttempts >= MAX_ATTEMPTS ? 429 : 401
       );
+    };
+
+    const isEligible =
+      Boolean(codeRow) &&
+      codeRow!.is_active &&
+      !codeRow!.revoked_at &&
+      !codeRow!.used_at &&
+      (!codeRow!.expires_at || new Date(codeRow!.expires_at).getTime() > now.getTime());
+
+    if (!isEligible) {
+      return await recordInvalidAttempt();
+    }
+
+    const nowIso = now.toISOString();
+
+    if (hasUsedAtColumn) {
+      // Atomically claim this single-use code before issuing a session.
+      // Do NOT clear is_active/revoked_at so the one session issued remains valid until TTL/revocation.
+      const { data: claimed, error: claimErr } = await supabase
+        .from('access_codes')
+        .update({ used_at: nowIso })
+        .eq('id', codeRow!.id)
+        .is('used_at', null)
+        .eq('is_active', true)
+        .is('revoked_at', null)
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+        .select('id')
+        .maybeSingle();
+
+      if (claimErr || !claimed) {
+        return await recordInvalidAttempt();
+      }
+    } else {
+      const { count: priorUses } = await supabase
+        .from('access_sessions')
+        .select('id', { count: 'exact', head: true })
+        .eq('access_code_id', codeRow!.id);
+
+      if ((priorUses ?? 0) > 0) {
+        return await recordInvalidAttempt();
+      }
     }
 
     await supabase.from('access_rate_limits').delete().eq('ip_hash', ipHash);
@@ -113,14 +176,42 @@ Deno.serve(async (req) => {
     }
     const expiresAt = new Date(expiresAtMs).toISOString();
 
-    const { error: insertErr } = await supabase.from('access_sessions').insert({
-      token_hash: tokenHash,
-      access_code_id: codeRow!.id,
-      expires_at: expiresAt,
-    });
+    const { data: insertedSession, error: insertErr } = await supabase
+      .from('access_sessions')
+      .insert({
+        token_hash: tokenHash,
+        access_code_id: codeRow!.id,
+        expires_at: expiresAt,
+      })
+      .select('id, created_at')
+      .single();
 
-    if (insertErr) {
+    if (insertErr || !insertedSession) {
+      if (hasUsedAtColumn) {
+        await supabase
+          .from('access_codes')
+          .update({ used_at: null })
+          .eq('id', codeRow!.id)
+          .eq('used_at', nowIso);
+      }
       return jsonResponse({ error: 'Unable to create session.' }, 500);
+    }
+
+    if (!hasUsedAtColumn) {
+      // Fallback guard against concurrent redemption before SQL migration 004 runs
+      const { data: firstSession } = await supabase
+        .from('access_sessions')
+        .select('id')
+        .eq('access_code_id', codeRow!.id)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (firstSession && firstSession.id !== insertedSession.id) {
+        await supabase.from('access_sessions').delete().eq('id', insertedSession.id);
+        return await recordInvalidAttempt();
+      }
     }
 
     return jsonResponse({

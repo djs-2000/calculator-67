@@ -49,7 +49,7 @@ SELECT
   id,
   '',
   'embed',
-  'https://www.drivemad.com/',
+  '/modules/drive-mad/index.html',
   NULL,
   true
 FROM public.game_categories
@@ -60,3 +60,7 @@ ON CONFLICT (slug) DO UPDATE SET
   play_mode = EXCLUDED.play_mode,
   embed_url = EXCLUDED.embed_url,
   is_active = true;
+
+UPDATE public.games
+SET is_active = false
+WHERE slug IN ('slow-roads', 'procedural-terrain');

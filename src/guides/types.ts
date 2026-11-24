@@ -27,6 +27,7 @@ export interface AccessCodeRecord {
   label: string | null;
   is_active: boolean;
   expires_at: string | null;
+  used_at: string | null;
   revoked_at: string | null;
   created_at: string;
 }

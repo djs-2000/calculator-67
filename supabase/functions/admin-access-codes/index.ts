@@ -27,13 +27,48 @@ Deno.serve(async (req) => {
     const { supabase, user } = admin;
 
     if (req.method === 'GET') {
-      const { data, error } = await supabase
+      const primary = await supabase
         .from('access_codes')
-        .select('id, code_prefix, label, is_active, expires_at, revoked_at, created_at')
+        .select('id, code_prefix, label, is_active, expires_at, used_at, revoked_at, created_at')
         .order('created_at', { ascending: false });
 
-      if (error) return jsonResponse({ error: 'Failed to load access codes.' }, 500);
-      return jsonResponse({ admin: admin.admin, codes: data ?? [] });
+      if (
+        primary.error &&
+        (primary.error.code === '42703' || primary.error.message?.includes('used_at'))
+      ) {
+        const fallback = await supabase
+          .from('access_codes')
+          .select('id, code_prefix, label, is_active, expires_at, revoked_at, created_at')
+          .order('created_at', { ascending: false });
+
+        if (fallback.error) {
+          return jsonResponse({ error: 'Failed to load access codes.' }, 500);
+        }
+
+        const rows = fallback.data ?? [];
+        const codeIds = rows.map((r) => r.id);
+        const usedMap = new Map<string, string>();
+        if (codeIds.length > 0) {
+          const { data: sessions } = await supabase
+            .from('access_sessions')
+            .select('access_code_id, created_at')
+            .in('access_code_id', codeIds)
+            .order('created_at', { ascending: true });
+          for (const s of sessions ?? []) {
+            if (!usedMap.has(s.access_code_id)) {
+              usedMap.set(s.access_code_id, s.created_at);
+            }
+          }
+        }
+
+        return jsonResponse({
+          admin: admin.admin,
+          codes: rows.map((r) => ({ ...r, used_at: usedMap.get(r.id) ?? null })),
+        });
+      }
+
+      if (primary.error) return jsonResponse({ error: 'Failed to load access codes.' }, 500);
+      return jsonResponse({ admin: admin.admin, codes: primary.data ?? [] });
     }
 
     if (req.method === 'POST') {
@@ -82,7 +117,7 @@ Deno.serve(async (req) => {
         ? new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString()
         : null;
 
-      const { data: created, error } = await supabase
+      const primaryInsert = await supabase
         .from('access_codes')
         .insert({
           code_hash: codeHash,
@@ -92,14 +127,41 @@ Deno.serve(async (req) => {
           expires_at: expiresAt,
           created_by: user.id,
         })
-        .select('id, code_prefix, label, is_active, expires_at, revoked_at, created_at')
+        .select('id, code_prefix, label, is_active, expires_at, used_at, revoked_at, created_at')
         .single();
 
-      if (error || !created) {
+      if (
+        primaryInsert.error &&
+        (primaryInsert.error.code === '42703' ||
+          primaryInsert.error.message?.includes('used_at'))
+      ) {
+        const fallbackInsert = await supabase
+          .from('access_codes')
+          .insert({
+            code_hash: codeHash,
+            code_prefix: codePrefix,
+            label,
+            is_active: true,
+            expires_at: expiresAt,
+            created_by: user.id,
+          })
+          .select('id, code_prefix, label, is_active, expires_at, revoked_at, created_at')
+          .single();
+
+        if (fallbackInsert.error || !fallbackInsert.data) {
+          return jsonResponse({ error: 'Unable to create access code.' }, 500);
+        }
+        return jsonResponse(
+          { code: { ...fallbackInsert.data, used_at: null }, plaintextCode },
+          201
+        );
+      }
+
+      if (primaryInsert.error || !primaryInsert.data) {
         return jsonResponse({ error: 'Unable to create access code.' }, 500);
       }
 
-      return jsonResponse({ code: created, plaintextCode }, 201);
+      return jsonResponse({ code: primaryInsert.data, plaintextCode }, 201);
     }
 
     if (req.method === 'DELETE') {
