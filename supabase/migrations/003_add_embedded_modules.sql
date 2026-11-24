@@ -1,4 +1,4 @@
--- Add PolyTrack and Retro Bowl embedded educational simulation modules
+-- Add PolyTrack, Retro Bowl, and Drive Mad embedded educational simulation modules
 -- Idempotent migration safe to execute on existing databases.
 
 INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
@@ -9,7 +9,7 @@ SELECT
   id,
   '',
   'embed',
-  'https://joe-the-chicken.github.io/polytrack/',
+  '/modules/polytrack/index.html',
   NULL,
   true
 FROM public.game_categories
@@ -29,11 +29,31 @@ SELECT
   id,
   '',
   'embed',
-  'https://game316009.konggames.com/gamez/0031/6009/live/index.html',
+  'https://retro-bowl-six.vercel.app/',
   NULL,
   true
 FROM public.game_categories
 WHERE slug = 'tactics-logic'
+ON CONFLICT (slug) DO UPDATE SET
+  title = EXCLUDED.title,
+  description = EXCLUDED.description,
+  play_mode = EXCLUDED.play_mode,
+  embed_url = EXCLUDED.embed_url,
+  is_active = true;
+
+INSERT INTO public.games (slug, title, description, category_id, thumbnail_url, play_mode, embed_url, external_url, is_active)
+SELECT
+  'drivemad-kinematics',
+  'Drive Mad — Torque Equilibrium & Suspension Lab',
+  'Rigid-body mechanics simulation investigating rotational torque, center-of-mass balance, suspension impulse damping, and wheel-surface static friction across irregular terrain.',
+  id,
+  '',
+  'embed',
+  'https://www.drivemad.com/',
+  NULL,
+  true
+FROM public.game_categories
+WHERE slug = 'physics-motion'
 ON CONFLICT (slug) DO UPDATE SET
   title = EXCLUDED.title,
   description = EXCLUDED.description,

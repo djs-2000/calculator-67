@@ -61,6 +61,7 @@ function slugify(input: string): string {
 }
 
 function isValidHttpUrl(value: string): boolean {
+  if (value.startsWith('/')) return value.length > 1;
   try {
     const parsed = new URL(value);
     return parsed.protocol === 'https:' || parsed.protocol === 'http:';
@@ -376,15 +377,22 @@ async function startServer() {
 
     const guides = (rawItems ?? []).map((item) => {
       const mapped = LEGACY_GUIDE_MAP[item.slug];
+      const resolvedSlug = mapped ? mapped.slug : item.slug;
+      const resolvedEmbedUrl =
+        resolvedSlug === 'polytrack-kinematics' &&
+        typeof item.embed_url === 'string' &&
+        item.embed_url.includes('github.io/polytrack')
+          ? '/modules/polytrack/index.html'
+          : item.embed_url;
       return {
         id: item.id,
-        slug: mapped ? mapped.slug : item.slug,
+        slug: resolvedSlug,
         title: mapped ? mapped.title : item.title,
         description: mapped ? mapped.description : item.description,
         category_id: item.category_id,
         thumbnail_url: mapped ? mapped.thumbnail_url : item.thumbnail_url,
         mode: item.play_mode,
-        embed_url: item.embed_url,
+        embed_url: resolvedEmbedUrl,
         external_url: item.external_url,
         is_active: item.is_active,
         created_at: item.created_at,
@@ -402,7 +410,7 @@ async function startServer() {
         description:
           'Interactive low-poly kinematic simulation analyzing centripetal acceleration, banked-curve friction limits, spline curvature optimization, and angular momentum across bounded tracks.',
         category_id: catBySlug.get('physics-motion') ?? fallbackCatId,
-        embed_url: 'https://joe-the-chicken.github.io/polytrack/',
+        embed_url: '/modules/polytrack/index.html',
       },
       {
         slug: 'retrobowl-kinematics',
@@ -410,7 +418,15 @@ async function startServer() {
         description:
           'Applied probability and projectile mechanics simulation modeling parabolic release angles, lateral intercept vectors, expected-value decision trees, and discrete interval budgeting.',
         category_id: catBySlug.get('tactics-logic') ?? fallbackCatId,
-        embed_url: 'https://game316009.konggames.com/gamez/0031/6009/live/index.html',
+        embed_url: 'https://retro-bowl-six.vercel.app/',
+      },
+      {
+        slug: 'drivemad-kinematics',
+        title: 'Drive Mad — Torque Equilibrium & Suspension Lab',
+        description:
+          'Rigid-body mechanics simulation investigating rotational torque, center-of-mass balance, suspension impulse damping, and wheel-surface static friction across irregular terrain.',
+        category_id: catBySlug.get('physics-motion') ?? fallbackCatId,
+        embed_url: 'https://www.drivemad.com/',
       },
     ];
 

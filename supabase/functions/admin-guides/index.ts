@@ -11,6 +11,7 @@ function slugify(input: string): string {
 }
 
 function isValidHttpUrl(value: string): boolean {
+  if (value.startsWith('/')) return value.length > 1;
   try {
     const parsed = new URL(value);
     return parsed.protocol === 'https:' || parsed.protocol === 'http:';

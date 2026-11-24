@@ -8,6 +8,36 @@ import {
 } from '../lib/api';
 import { type GuideCategory, type GuideItem, type GuideMode } from '../guides/types';
 
+function normalizeModuleUrl(raw: string): string {
+  let cleaned = raw.trim();
+  if (!cleaned) return '';
+
+  const iframeMatch = cleaned.match(/src\s*=\s*["']([^"']+)["']/i);
+  if (iframeMatch?.[1]) {
+    cleaned = iframeMatch[1].trim();
+  }
+
+  if (
+    cleaned.startsWith('/') ||
+    /^https?:\/\//i.test(cleaned)
+  ) {
+    return cleaned;
+  }
+
+  return `https://${cleaned}`;
+}
+
+function isAcceptedUrl(value: string): boolean {
+  if (!value) return false;
+  if (value.startsWith('/')) return value.length > 1;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 export const GuidesManager: React.FC = () => {
   const [guides, setGuides] = useState<GuideItem[]>([]);
   const [categories, setCategories] = useState<GuideCategory[]>([]);
@@ -19,7 +49,7 @@ export const GuidesManager: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [mode, setMode] = useState<GuideMode>('external');
+  const [mode, setMode] = useState<GuideMode>('embed');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [embedUrl, setEmbedUrl] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
@@ -36,26 +66,27 @@ export const GuidesManager: React.FC = () => {
       ]);
       setGuides(guidesRes.guides);
       setCategories(catsRes.categories);
-      if (!categoryId && catsRes.categories.length > 0) {
-        setCategoryId(catsRes.categories[0].id);
+      if (catsRes.categories.length > 0) {
+        setCategoryId((prev) => prev || catsRes.categories[0].id);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load guides.');
     } finally {
       setLoading(false);
     }
-  }, [categoryId]);
+  }, []);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
   const openCreate = () => {
+    setError(null);
     setEditingId(null);
     setTitle('');
     setDescription('');
     setCategoryId(categories[0]?.id ?? '');
-    setMode('external');
+    setMode('embed');
     setThumbnailUrl('');
     setEmbedUrl('');
     setExternalUrl('');
@@ -64,6 +95,7 @@ export const GuidesManager: React.FC = () => {
   };
 
   const openEdit = (g: GuideItem) => {
+    setError(null);
     setEditingId(g.id);
     setTitle(g.title);
     setDescription(g.description);
@@ -78,19 +110,39 @@ export const GuidesManager: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     setError(null);
 
+    const cleanTitle = title.trim();
+    const cleanDesc = description.trim();
+    if (!cleanTitle || !cleanDesc || !categoryId) {
+      setError('Title, description, and category are required.');
+      return;
+    }
+
+    const normalizedEmbed = mode === 'embed' ? normalizeModuleUrl(embedUrl) : null;
+    const normalizedExternal =
+      mode === 'external' ? normalizeModuleUrl(externalUrl) : null;
+
+    if (mode === 'embed' && (!normalizedEmbed || !isAcceptedUrl(normalizedEmbed))) {
+      setError('Enter a valid URL (for example https://example.com or an <iframe> snippet).');
+      return;
+    }
+    if (mode === 'external' && (!normalizedExternal || !isAcceptedUrl(normalizedExternal))) {
+      setError('Enter a valid external URL (for example https://example.com).');
+      return;
+    }
+
+    setSaving(true);
     try {
       await saveAdminGuide(editingId ? 'edit' : 'create', {
         id: editingId ?? undefined,
-        title,
-        description,
+        title: cleanTitle,
+        description: cleanDesc,
         category_id: categoryId,
         mode,
-        thumbnail_url: thumbnailUrl,
-        embed_url: mode === 'embed' ? embedUrl : null,
-        external_url: mode === 'external' ? externalUrl : null,
+        thumbnail_url: thumbnailUrl.trim(),
+        embed_url: normalizedEmbed,
+        external_url: normalizedExternal,
         is_active: isActive,
       });
       setShowForm(false);
@@ -144,6 +196,7 @@ export const GuidesManager: React.FC = () => {
 
       {showForm && (
         <form
+          noValidate
           onSubmit={handleSubmit}
           className="bg-white border border-slate-200 rounded-lg p-5 space-y-4"
         >
@@ -167,7 +220,6 @@ export const GuidesManager: React.FC = () => {
               </label>
               <input
                 type="text"
-                required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md"
@@ -197,7 +249,6 @@ export const GuidesManager: React.FC = () => {
               Short Description
             </label>
             <textarea
-              required
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -215,8 +266,8 @@ export const GuidesManager: React.FC = () => {
                 onChange={(e) => setMode(e.target.value as GuideMode)}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md bg-white"
               >
-                <option value="external">Official External Link</option>
                 <option value="embed">Embedded Reference (iframe)</option>
+                <option value="external">Official External Link</option>
                 <option value="builtin">Built-in Interactive Module</option>
               </select>
             </div>
@@ -238,14 +289,13 @@ export const GuidesManager: React.FC = () => {
           {mode === 'embed' && (
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Embed URL
+                Embed URL (or paste full &lt;iframe&gt; snippet)
               </label>
               <input
-                type="url"
-                required
+                type="text"
                 value={embedUrl}
                 onChange={(e) => setEmbedUrl(e.target.value)}
-                placeholder="https://..."
+                placeholder="https://example.com/embed or <iframe src='...'>"
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md"
               />
             </div>
@@ -257,8 +307,7 @@ export const GuidesManager: React.FC = () => {
                 Official External URL
               </label>
               <input
-                type="url"
-                required
+                type="text"
                 value={externalUrl}
                 onChange={(e) => setExternalUrl(e.target.value)}
                 placeholder="https://..."

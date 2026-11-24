@@ -15,7 +15,7 @@ const DEFAULT_EMBEDDED_BLUEPRINTS: EmbeddedModuleBlueprint[] = [
     description:
       'Interactive low-poly kinematic simulation analyzing centripetal acceleration, banked-curve friction limits, spline curvature optimization, and angular momentum across bounded tracks.',
     categorySlug: 'physics-motion',
-    embed_url: 'https://joe-the-chicken.github.io/polytrack/',
+    embed_url: '/modules/polytrack/index.html',
   },
   {
     slug: 'retrobowl-kinematics',
@@ -23,7 +23,15 @@ const DEFAULT_EMBEDDED_BLUEPRINTS: EmbeddedModuleBlueprint[] = [
     description:
       'Applied probability and projectile mechanics simulation modeling parabolic release angles, lateral intercept vectors, expected-value decision trees, and discrete interval budgeting.',
     categorySlug: 'tactics-logic',
-    embed_url: 'https://game316009.konggames.com/gamez/0031/6009/live/index.html',
+    embed_url: 'https://retro-bowl-six.vercel.app/',
+  },
+  {
+    slug: 'drivemad-kinematics',
+    title: 'Drive Mad — Torque Equilibrium & Suspension Lab',
+    description:
+      'Rigid-body mechanics simulation investigating rotational torque, center-of-mass balance, suspension impulse damping, and wheel-surface static friction across irregular terrain.',
+    categorySlug: 'physics-motion',
+    embed_url: 'https://www.drivemad.com/',
   },
 ];
 
@@ -34,7 +42,13 @@ export function mergeDefaultEmbeddedModules(
   const existingSlugs = new Set(guides.map((g) => g.slug));
   const categoryBySlug = new Map(categories.map((c) => [c.slug, c.id]));
   const fallbackCategoryId = categories[0]?.id ?? 'general';
-  const merged = [...guides];
+  const merged = guides.map((g) =>
+    g.slug === 'polytrack-kinematics' &&
+    typeof g.embed_url === 'string' &&
+    g.embed_url.includes('github.io/polytrack')
+      ? { ...g, embed_url: '/modules/polytrack/index.html' }
+      : g
+  );
 
   for (const bp of DEFAULT_EMBEDDED_BLUEPRINTS) {
     if (existingSlugs.has(bp.slug)) continue;

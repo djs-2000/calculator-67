@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { fetchProtectedCatalog, clearStoredAccessSession } from '../lib/api';
 import { type GuideCategory, type GuideItem } from '../guides/types';
 import { mergeDefaultEmbeddedModules } from '../guides/defaultEmbeddedModules';
@@ -32,7 +32,7 @@ function getAcademicSupplement(slug: string): AcademicSupplement {
       objectives: [
         'Analyze how centripetal acceleration (a_c = v² / r) constrains maximum tangential speed along variable-radius curves.',
         'Observe banked-surface normal-force components and static friction thresholds during rapid directional transitions.',
-        'Evaluate optimal geometric racing lines (minimum curvature pathing) to minimize elapsed phase time.',
+        'Evaluate optimal geometric trajectory paths (minimum curvature pathing) to minimize elapsed phase time.',
       ],
       formulas: [
         {
@@ -97,6 +97,47 @@ function getAcademicSupplement(slug: string): AcademicSupplement {
     };
   }
 
+  if (slug === 'drivemad-kinematics') {
+    return {
+      courseAlignment:
+        'AP Physics 1 (Rotational Torque, Center of Mass & Impulse) · Applied Mechanical Engineering',
+      objectives: [
+        'Analyze rigid-body pitch equilibrium (Στ = I · α) as drive-wheel torque counters gravitational tipping moments across inclined surfaces and vertical steps.',
+        'Observe suspension impulse absorption (J = ∫ F dt = Δp) and elastic rebound dynamics upon impact with uneven terrain.',
+        'Balance front-axle and rear-axle normal force distribution (N_f + N_r = m · g · cos θ) to maintain static friction traction without exceeding rotational stability thresholds.',
+      ],
+      formulas: [
+        {
+          label: 'Rotational Torque & Angular Acceleration',
+          expression: 'τ = r × F = I · α',
+          note: 'Excessive axle torque on steep climbs rotates the chassis backward around the rear contact point.',
+        },
+        {
+          label: 'Static Traction Limit',
+          expression: 'f_s,max = μ_s · N',
+          note: 'Maximum horizontal drive force depends on normal reaction force and wheel-surface friction coefficient.',
+        },
+        {
+          label: 'Linear Impulse-Momentum Theorem',
+          expression: 'J = ∫ F_net dt = m · Δv',
+          note: 'Suspension compression lengthens impact duration Δt to reduce peak structural impulse forces.',
+        },
+        {
+          label: 'Pitch Stability Equilibrium',
+          expression: 'Στ_com = (N_f · d_f) − (N_r · d_r) + τ_axle = 0',
+          note: 'Modulating forward and reverse acceleration in mid-air shifts angular momentum to align landing angles.',
+        },
+      ],
+      methodology:
+        'Approach each obstacle course as a sequential statics and rotational-dynamics experiment. Because rigid bodies conserve angular momentum during airborne intervals, brief counter-torque adjustments before touchdown align both axles with the landing gradient, minimizing rebound impulse and preserving traction across bridges, hinges, and inclined ramps.',
+      questions: [
+        'Why does rapid throttle application on an upward ramp pitch the front axle upward, and how does counter-braking restore equilibrium?',
+        'Use the impulse-momentum relationship (J = F_avg · Δt) to explain how landing flat across both axles lowers structural rebound compared to a single-axle impact.',
+        'Identify where normal force N drops toward zero on convex crests and describe how reducing tangential velocity preserves wheel contact.',
+      ],
+    };
+  }
+
   return {
     courseAlignment:
       'Algebra I–II · Discrete Mathematics · Computational Logic & Reasoning',
@@ -137,6 +178,66 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
   const [moduleItem, setModuleItem] = useState<GuideItem | null>(null);
   const [categoryName, setCategoryName] = useState('General');
   const [diagramRevealed, setDiagramRevealed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [cssFullscreen, setCssFullscreen] = useState(false);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onFsChange = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active || cssFullscreen);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && cssFullscreen) {
+        setCssFullscreen(false);
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [cssFullscreen]);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => undefined);
+      setCssFullscreen(false);
+      setIsFullscreen(false);
+      return;
+    }
+    if (cssFullscreen) {
+      setCssFullscreen(false);
+      setIsFullscreen(false);
+      return;
+    }
+
+    const target = viewportRef.current as
+      | (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> | void })
+      | null;
+    if (target?.requestFullscreen) {
+      try {
+        await target.requestFullscreen();
+        setIsFullscreen(true);
+        return;
+      } catch {
+        // Fallback for browsers such as iPad Safari that restrict element fullscreen
+      }
+    } else if (target?.webkitRequestFullscreen) {
+      try {
+        await target.webkitRequestFullscreen();
+        setIsFullscreen(true);
+        return;
+      } catch {
+        // Fallback below
+      }
+    }
+
+    setCssFullscreen(true);
+    setIsFullscreen(true);
+  }, [cssFullscreen]);
 
   const loadModule = useCallback(async () => {
     setChecking(true);
@@ -348,7 +449,7 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
           <h3 className="text-sm uppercase tracking-widest text-[#666666]">
             Reference Formulas for Observation
           </h3>
-          <div className="space-y-2.5 border-l-2 border-[#cccccc] pl-4">
+          <div className="space-y-2.5 pl-4">
             {supplement.formulas.map((f, idx) => (
               <div key={idx} className="text-sm">
                 <div className="font-bold text-[#333333]">
@@ -361,7 +462,7 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
         </div>
       </section>
 
-      <section className="pt-6 border-t border-[#e0e0e0] space-y-4">
+      <section className="pt-6 space-y-4">
         <div className="space-y-1">
           <h2 className="text-lg font-normal text-[#333333]">
             Figure 1.1: {moduleItem.title}
@@ -373,7 +474,7 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
         </div>
 
         {!diagramRevealed ? (
-          <div className="py-12 px-6 bg-white text-center space-y-4 border border-[#e5e5e5]">
+          <div className="py-12 px-6 bg-white text-center space-y-4">
             <p className="text-xs uppercase tracking-widest text-[#666666]">
               Read First
             </p>
@@ -410,8 +511,56 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
             {moduleItem.mode === 'builtin' && renderInteractiveModule()}
 
             {moduleItem.mode === 'embed' && moduleItem.embed_url && (
-              <div className="space-y-3">
-                <div className="aspect-[16/10] w-full min-h-[480px] overflow-hidden bg-white border border-[#d4d4d4]">
+              <div
+                ref={viewportRef}
+                className={
+                  cssFullscreen
+                    ? 'fixed inset-0 z-50 bg-white flex flex-col p-3 sm:p-4'
+                    : isFullscreen
+                      ? 'bg-white flex flex-col w-full h-full p-2'
+                      : 'space-y-3 bg-white'
+                }
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#555555] pb-2">
+                  <span>
+                    Phase: Active Observation · Target Metric: Accuracy Rate vs. Benchmark
+                  </span>
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={toggleFullscreen}
+                      className="inline-flex items-center gap-1.5 underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#333333]"
+                    >
+                      {isFullscreen ? (
+                        <>
+                          <Minimize2 className="w-3.5 h-3.5" />
+                          <span>Exit Fullscreen</span>
+                        </>
+                      ) : (
+                        <>
+                          <Maximize2 className="w-3.5 h-3.5" />
+                          <span>Fullscreen</span>
+                        </>
+                      )}
+                    </button>
+                    {!isFullscreen && (
+                      <button
+                        type="button"
+                        onClick={() => setDiagramRevealed(false)}
+                        className="underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#555555]"
+                      >
+                        Collapse Diagram
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div
+                  className={
+                    isFullscreen || cssFullscreen
+                      ? 'flex-1 w-full min-h-0 overflow-hidden bg-white'
+                      : 'aspect-[16/10] w-full min-h-[480px] overflow-hidden bg-white'
+                  }
+                >
                   <iframe
                     src={moduleItem.embed_url}
                     title={moduleItem.title}
@@ -420,19 +569,12 @@ export const GuideDetailPage: React.FC<GuideDetailPageProps> = ({
                     allowFullScreen
                   />
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs italic text-[#555555]">
-                  <span>
+                {!isFullscreen && !cssFullscreen && (
+                  <p className="text-xs italic text-[#555555]">
                     Figure 1.1b: Click inside the simulation viewport to focus keyboard or
                     pointer vectors.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setDiagramRevealed(false)}
-                    className="underline underline-offset-4 bg-transparent p-0 cursor-pointer text-[#555555]"
-                  >
-                    Collapse Diagram
-                  </button>
-                </div>
+                  </p>
+                )}
               </div>
             )}
 
